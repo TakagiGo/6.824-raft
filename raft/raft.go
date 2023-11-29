@@ -61,7 +61,8 @@ type EventType int
 
 const (
 	TickerTimeOutEvent EventType = iota
-	RecvTickerEvent
+	TickerEvent
+	VoteEvent
 )
 
 type Event struct {
@@ -86,18 +87,19 @@ type Raft struct {
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
 	//2A
-	log         []*Log
-	logLength   int
-	currentTerm int
-	votedFor    int
-	commitIndex int
-	lastApplied int
-	nextIndex   []int
-	matchIndex  []int
-	rfstatus    Rfstatus
-	processCh   chan Event
-	applyCh     chan ApplyMsg
-	tickerTimer *time.Timer
+	log            []*Log
+	logLength      int
+	currentTerm    int
+	votedFor       int
+	commitIndex    int
+	lastApplied    int
+	nextIndex      []int
+	matchIndex     []int
+	rfstatus       Rfstatus
+	processCh      chan *Event
+	applyCh        chan ApplyMsg
+	tickerTimer    *time.Timer
+	VoteCollection int
 }
 
 // return currentTerm and whether this server
@@ -160,10 +162,7 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 }
 
 type AppendEntriesArgs struct {
-	term         int
-	candidateId  int
-	lastLogIndex int
-	lastLogItem  int
+
 	// Your data here (2A, 2B).
 }
 
@@ -171,17 +170,15 @@ type AppendEntriesArgs struct {
 // field names must start with capital letters!
 type AppendEntriesReply struct {
 	// Your data here (2A).
-	term        int
-	voteGranted bool
 }
 
 // example RequestVote RPC arguments structure.
 // field names must start with capital letters!
 type RequestVoteArgs struct {
-	term         int
-	candidateId  int
-	lastLogIndex int
-	lastLogItem  int
+	Term         int
+	CandidateId  int
+	LastLogIndex int
+	LastLogItem  int
 	// Your data here (2A, 2B).
 }
 
@@ -189,22 +186,34 @@ type RequestVoteArgs struct {
 // field names must start with capital letters!
 type RequestVoteReply struct {
 	// Your data here (2A).
-	term        int
-	voteGranted bool
+	Term        int
+	VoteGranted bool
 }
 
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	if rf.votedFor != -1 || rf.currentTerm > args.term {
-		reply.term = rf.currentTerm
-		reply.voteGranted = false
+	if rf.votedFor != -1 || rf.currentTerm > args.Term {
+		Debug(dInfo, "S%d receive a Vote Request from %d,but have reject it", rf.me, args.CandidateId)
+		reply.Term = rf.currentTerm
+		reply.VoteGranted = false
 	} else {
-		reply.term = rf.currentTerm
-		rf.votedFor = args.candidateId
-		reply.voteGranted = true
+		Debug(dInfo, "S%d receive a Vote Request from %d, vote for it", rf.me, args.CandidateId)
+		rf.tickerTimer.Reset(time.Duration(1) * time.Second)
+		rf.currentTerm = args.Term
+		reply.Term = rf.currentTerm
+		rf.votedFor = args.CandidateId
+		reply.VoteGranted = true
+		//todo 2B
 	}
+	// Your code here (2A, 2B).
+}
+
+func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.tickerTimer.Reset(time.Duration(1) * time.Second)
 	// Your code here (2A, 2B).
 }
 
@@ -237,6 +246,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 // the struct itself.
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
+	rf.processCh <- &Event{eventType: VoteEvent, eventData: reply}
+	return ok
+}
+
+func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
+	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 	return ok
 }
 
@@ -287,54 +302,91 @@ func (rf *Raft) processEvent() {
 		switch event.eventType {
 		case TickerTimeOutEvent:
 			Debug(dTimer, "S%d voteTimer Time out", rf.me)
-		case RecvTickerEvent:
+			rf.startElection()
+		case TickerEvent:
 			Debug(dInfo, "S%d receive a Ticker Event from", rf.me)
+		case VoteEvent:
+			Debug(dVote, "S%d recive a vote Event", rf.me)
+			rf.VoteCollection++
+			if rf.VoteCollection > rf.peersNumber/2 {
+				rf.mu.Lock()
+				rf.rfstatus = leader
+				rf.mu.Unlock()
+				Debug(dInfo, "S%d become a leader", rf.me)
+				rf.tickerTimer.Stop()
+				rf.sendticker()
+			}
+
 		}
+	}
+}
+
+func (rf *Raft) sendticker() {
+	for rf.killed() == false {
+		Debug(dTimer, "S%d send ticker to maintain the leader", rf.me)
+		// Your code here (2A)
+		// Check if a leader election should be started.
+
+		// pause for a random amount of time between 50 and 350
+		// milliseconds.
+		for i := 0; i < len(rf.peers); i++ {
+			if i == rf.me {
+				continue
+			}
+			go func(i int) {
+				args := &AppendEntriesArgs{}
+				reply := &AppendEntriesReply{}
+				ok := rf.sendAppendEntries(i, args, reply)
+				if !ok {
+					Debug(dError, "S%d send request vote to %d failed", rf.me, i)
+				}
+			}(i)
+		}
+		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 }
 
 func (rf *Raft) startElection() {
 	rf.mu.Lock()
+	rf.VoteCollection = 0
+	var wg sync.WaitGroup
+	wg.Add(rf.peersNumber)
 	rf.rfstatus = candidate
 	rf.mu.Unlock()
+	rf.currentTerm++
+	rf.tickerTimer.Reset(time.Duration(1) * time.Second)
+	rf.votedFor = rf.me
+	args := &RequestVoteArgs{
+		Term:        rf.currentTerm,
+		CandidateId: rf.me,
+		//todo (2B)
+	}
+	rf.processCh <- &Event{eventType: VoteEvent, eventData: &RequestVoteReply{Term: rf.currentTerm, VoteGranted: true}}
+	Debug(dError, "S%d broadcast the vote %v", rf.me, args)
+	for i := 0; i < len(rf.peers); i++ {
+		if i == rf.me {
+			continue
+		}
+		go func(i int, args *RequestVoteArgs) {
+			reply := &RequestVoteReply{}
+			ok := rf.sendRequestVote(i, args, reply)
+			if !ok {
+				Debug(dError, "S%d send request vote to %d failed", rf.me, i)
+			}
+		}(i, args)
+	}
 }
 
 func (rf *Raft) ticker() {
 	for rf.killed() == false {
 		Debug(dTimer, "S%d start the voteTimer", rf.me)
 		// Your code here (2A)
-		timer := time.NewTimer()
 		// Check if a leader election should be started.
 		select {
-		case <-timer.C:
-			argeeNumber := 0
-
-			rf.currentTerm++
-			args := &RequestVoteArgs{
-				rf.currentTerm,
-				rf.me,
-				rf.logLength,
-				rf.log[rf.logLength-1].leaderTerm,
-			}
-			for i := 0; i < len(rf.peers); i++ {
-				if i == rf.me {
-					continue
-				}
-				reply := &RequestVoteReply{}
-				ok := rf.sendRequestVote(i, args, reply)
-				if !ok {
-					Debug(dError, "S%d send request vote to %d failed", rf.me, i)
-				}
-				if reply.voteGranted {
-					argeeNumber++
-				}
-			}
-			if argeeNumber >= rf.peersNumber {
-				rf.rfstatus = leader
-			}
-		case applyMsg := <-rf.applyCh:
-			timer.Reset(1 * time.Second)
+		case <-rf.tickerTimer.C:
+			rf.processCh <- &Event{eventType: TickerTimeOutEvent}
 		}
+
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
 		ms := 50 + (rand.Int63() % 300)
@@ -370,10 +422,10 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	Debug(dInfo, "S%d start to service", rf.me)
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
-	rf.processCh = make(chan Event, 256)
-	rf.tickerTimer = time.NewTimer(1 * time.Second)
+	rf.processCh = make(chan *Event, 256)
+	rf.tickerTimer = time.NewTimer(time.Duration(50+(rand.Int63()%300)) * time.Millisecond)
 	// start ticker goroutine to start elections
 	go rf.ticker()
-
+	go rf.processEvent()
 	return rf
 }
