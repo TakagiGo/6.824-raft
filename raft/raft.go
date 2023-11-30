@@ -63,6 +63,7 @@ const (
 	TickerTimeOutEvent EventType = iota
 	TickerEvent
 	VoteEvent
+	StopEvent
 )
 
 type Event struct {
@@ -298,17 +299,25 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 func (rf *Raft) Kill() {
 	atomic.StoreInt32(&rf.dead, 1)
 	Debug(dError, "S%d is be killed", rf.me)
+	rf.close()
 	// Your code here, if desired.
 }
 
 func (rf *Raft) killed() bool {
 	z := atomic.LoadInt32(&rf.dead)
+
 	return z == 1
 }
 
 func (rf *Raft) processEvent() {
 	for rf.killed() == false {
+		if rf.processCh == nil {
+			return
+		}
 		event := <-rf.processCh
+		if event == nil {
+			return
+		}
 		switch event.eventType {
 		case TickerTimeOutEvent:
 			Debug(dTimer, "S%d voteTimer Time out", rf.me)
@@ -327,7 +336,8 @@ func (rf *Raft) processEvent() {
 
 				rf.sendticker()
 			}
-
+		default:
+			return
 		}
 	}
 }
@@ -404,7 +414,6 @@ func (rf *Raft) ticker() {
 		// Check if a leader election should be started.
 		select {
 		case <-rf.tickerTimer.C:
-
 			rf.processCh <- &Event{eventType: TickerTimeOutEvent}
 		}
 
@@ -450,4 +459,19 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	go rf.ticker()
 	go rf.processEvent()
 	return rf
+}
+
+func (rf *Raft) close() {
+DrainLoop:
+	for {
+		select {
+		case <-rf.processCh:
+		default:
+			break DrainLoop
+		}
+	}
+	close(rf.processCh)
+	close(rf.applyCh)
+	close(rf.cancelLeader)
+	rf.tickerTimer.Stop()
 }
