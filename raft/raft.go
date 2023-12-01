@@ -170,13 +170,16 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 }
 
 type AppendEntriesArgs struct {
-
+	CurrentTerm int
+	LeaderId    int
 	// Your data here (2A, 2B).
 }
 
 // example RequestVote RPC reply structure.
 // field names must start with capital letters!
 type AppendEntriesReply struct {
+	CurrentTerm int
+	Success     bool
 	// Your data here (2A).
 }
 
@@ -203,9 +206,15 @@ type RequestVoteReply struct {
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	if (rf.votedFor != -1 && rf.currentTerm >= args.Term) || rf.currentTerm > args.Term || (rf.rfstatus == leader && rf.currentTerm >= args.Term) {
-		Debug(dInfo, "S%d receive a Vote Request from %d,but have reject it", rf.me, args.CandidateId)
+	if rf.currentTerm > args.Term {
+		Debug(dInfo, "S%d receive a out of date Vote Request from %d, reject it", rf.me, args.CandidateId)
 		reply.Term = rf.currentTerm
+		reply.ReplyId = rf.me
+		reply.VoteGranted = false
+	} else if rf.votedFor != -1 && rf.currentTerm == args.Term {
+		Debug(dInfo, "S%d receive a Vote Request from %d,but already vote for %d", rf.me, args.CandidateId, rf.votedFor)
+		reply.Term = rf.currentTerm
+		reply.ReplyId = rf.me
 		reply.VoteGranted = false
 	} else {
 		Debug(dInfo, "S%d receive a Vote Request from %d, vote for it", rf.me, args.CandidateId)
@@ -227,10 +236,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	Debug(dWarn, "S%d reset tickerTimer", rf.me)
+	Debug(dWarn, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
 	rf.InnertickerTimer.Reset(time.Duration(1) * time.Second)
-	if rf.rfstatus == candidate {
+	if args.CurrentTerm > rf.currentTerm {
 		rf.rfstatus = follower
+		rf.currentTerm = args.CurrentTerm
+		rf.stopLeader <- true
 	}
 	// Your code here (2A, 2B).
 }
@@ -332,6 +343,9 @@ func (rf *Raft) processEvent() {
 			case TickerEvent:
 				Debug(dInfo, "S%d receive a Ticker Event from", rf.me)
 			case VoteEvent:
+				if rf.rfstatus != candidate {
+					continue
+				}
 				concreteStruct := event.eventData.(*RequestVoteReply)
 				Debug(dVote, "S%d recive a vote Event from %d", rf.me, concreteStruct.ReplyId)
 				if concreteStruct.VoteGranted == false {
@@ -371,7 +385,7 @@ func (rf *Raft) Outerticker() {
 					continue
 				}
 				go func(i int) {
-					args := &AppendEntriesArgs{}
+					args := &AppendEntriesArgs{CurrentTerm: rf.currentTerm, LeaderId: rf.me}
 					reply := &AppendEntriesReply{}
 					ok := rf.sendAppendEntries(i, args, reply)
 					if !ok {
