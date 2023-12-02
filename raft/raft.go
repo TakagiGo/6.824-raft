@@ -88,26 +88,27 @@ type Raft struct {
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
 	//2A
-	log              []*Log
-	logLength        int
-	currentTerm      int
-	votedFor         int
-	commitIndex      int
-	lastApplied      int
-	nextIndex        []int
-	matchIndex       []int
-	rfstatus         Rfstatus
-	processCh        chan *Event
-	applyCh          chan ApplyMsg
-	VoteCollection   int
-	InnertickerTimer *time.Timer
+	log            []*Log
+	logLength      int
+	currentTerm    int
+	votedFor       int
+	commitIndex    int
+	lastApplied    int
+	nextIndex      []int
+	matchIndex     []int
+	rfstatus       Rfstatus
+	processCh      chan *Event
+	applyCh        chan ApplyMsg
+	VoteCollection int
+
+	lastTickTime time.Time
 
 	//for leader
-	stopLeader       chan bool
-	OutertickerTimer *time.Timer
+	HeartBeatGap int
 
 	//for stopTimer
-	stopInnertickerTimer chan bool
+	stopLeader   chan bool
+	stoptickerCh chan bool
 }
 
 // return currentTerm and whether this server
@@ -218,15 +219,18 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.VoteGranted = false
 	} else {
 		Debug(dInfo, "S%d receive a Vote Request from %d, vote for it", rf.me, args.CandidateId)
-		rf.InnertickerTimer.Reset(time.Duration(1) * time.Second)
+		rf.lastTickTime = time.Now()
 		rf.currentTerm = args.Term
 		reply.Term = rf.currentTerm
 		reply.ReplyId = rf.me
 		rf.votedFor = args.CandidateId
 		reply.VoteGranted = true
-		if rf.rfstatus == leader {
+		if rf.rfstatus != follower {
+			if rf.rfstatus == leader {
+				Debug(dInfo, "S%d receive a Vote Request from %d, term is out of date", rf.me, args.CandidateId)
+				rf.stopLeader <- true
+			}
 			rf.rfstatus = follower
-			rf.stopLeader <- true
 		}
 		//todo 2B
 	}
@@ -236,12 +240,17 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	Debug(dWarn, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
-	rf.InnertickerTimer.Reset(time.Duration(1) * time.Second)
-	if args.CurrentTerm > rf.currentTerm {
-		rf.rfstatus = follower
+	if args.CurrentTerm >= rf.currentTerm {
+		rf.lastTickTime = time.Now()
+		Debug(dClient, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
 		rf.currentTerm = args.CurrentTerm
-		rf.stopLeader <- true
+		if rf.rfstatus == leader {
+			Debug(dClient, "S%d receive a AppendEntries from %d, become a Client", rf.me, args.LeaderId)
+			rf.stopLeader <- true
+		}
+		rf.rfstatus = follower
+	} else {
+		Debug(dClient, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
 	}
 	// Your code here (2A, 2B).
 }
@@ -275,7 +284,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 // the struct itself.
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
-	if ok {
+	if ok && rf.processCh != nil {
 		rf.processCh <- &Event{eventType: VoteEvent, eventData: reply}
 	}
 	return ok
@@ -326,7 +335,6 @@ func (rf *Raft) Kill() {
 
 func (rf *Raft) killed() bool {
 	z := atomic.LoadInt32(&rf.dead)
-
 	return z == 1
 }
 
@@ -347,18 +355,19 @@ func (rf *Raft) processEvent() {
 					continue
 				}
 				concreteStruct := event.eventData.(*RequestVoteReply)
-				Debug(dVote, "S%d recive a vote Event from %d", rf.me, concreteStruct.ReplyId)
+
 				if concreteStruct.VoteGranted == false {
 					continue
 				}
+
 				rf.VoteCollection++
+				Debug(dVote, "S%d receive a voteGrant from %d,now VoteNumber is %d", rf.me, concreteStruct.ReplyId, rf.VoteCollection)
 				if rf.VoteCollection > rf.peersNumber/2 {
 					rf.mu.Lock()
 					rf.rfstatus = leader
 					rf.mu.Unlock()
 					Debug(dInfo, "S%d become a leader,it has win the %d vote", rf.me, rf.VoteCollection)
-
-					rf.Outerticker()
+					rf.BrocastHeartBeat()
 				}
 			default:
 				Debug(dError, "S%d processCh receive a invalid type event %v", rf.me, event.eventData)
@@ -367,17 +376,24 @@ func (rf *Raft) processEvent() {
 	}
 }
 
-func (rf *Raft) Outerticker() {
+func (rf *Raft) BrocastHeartBeat() {
 
-	rf.OutertickerTimer = time.NewTimer(time.Duration(100) * time.Millisecond)
 	for rf.killed() == false {
+		// Your code here (2A)
+		// Check if a leader election should be started.
+
+		// pause for a random amount of time between 50 and 350
+		// milliseconds.
+
 		select {
-		case <-rf.OutertickerTimer.C:
-			Debug(dTimer, "S%d send ticker to maintain the leader", rf.me)
+		case <-rf.stopLeader:
+			Debug(dWarn, "[leader]S%d stop the Outerticker service", rf.me)
+			return
+		default:
+			Debug(dLeader, "S%d Broadcast the Heart Beat", rf.me)
 			// Your code here (2A)
 			// Check if a leader election should be started.
-			rf.InnertickerTimer.Reset(time.Duration(1) * time.Second)
-			rf.OutertickerTimer.Reset(time.Duration(100) * time.Millisecond)
+			rf.lastTickTime = time.Now()
 			// pause for a random amount of time between 50 and 350
 			// milliseconds.
 			for i := 0; i < len(rf.peers); i++ {
@@ -393,14 +409,9 @@ func (rf *Raft) Outerticker() {
 					}
 				}(i)
 			}
-		case <-rf.stopLeader:
-			Debug(dWarn, "[leader]S%d stop the Outerticker service", rf.me)
-			rf.OutertickerTimer.Stop()
-			return
-		default:
 		}
+		time.Sleep(time.Duration(rf.HeartBeatGap) * time.Millisecond)
 	}
-
 }
 
 func (rf *Raft) startElection() {
@@ -410,7 +421,7 @@ func (rf *Raft) startElection() {
 	rf.rfstatus = candidate
 	rf.VoteCollection = 0
 	rf.currentTerm++
-	rf.InnertickerTimer.Reset(time.Duration(2000*rf.me) * time.Millisecond)
+	rf.lastTickTime = time.Now()
 	rf.votedFor = rf.me
 	args := &RequestVoteArgs{
 		Term:        rf.currentTerm,
@@ -438,18 +449,22 @@ func (rf *Raft) ticker() {
 		Debug(dTimer, "S%d start the voteTimer", rf.me)
 		// Your code here (2A)
 		// Check if a leader election should be started.
-		select {
-		case <-rf.InnertickerTimer.C:
-			rf.processCh <- &Event{eventType: TickerTimeOutEvent}
-		case <-rf.stopInnertickerTimer:
-			rf.InnertickerTimer.Stop()
-			Debug(dWarn, "S%d stop the ticker timer because receive a quit command", rf.me)
-			return
-		}
+
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
-		ms := 50 + (rand.Int63() % 300)
+		ms := 150 + (rand.Int63() % 300)
 		time.Sleep(time.Duration(ms) * time.Millisecond)
+		select {
+		case <-rf.stoptickerCh:
+			Debug(dWarn, "S%d stop the ticker timer because receive a quit command", rf.me)
+			return
+		default:
+			rf.mu.Lock()
+			if time.Since(rf.lastTickTime) > time.Duration(ms)*time.Millisecond {
+				rf.processCh <- &Event{eventType: TickerTimeOutEvent}
+			}
+			rf.mu.Unlock()
+		}
 	}
 }
 
@@ -477,14 +492,15 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.votedFor = -1
 	rf.commitIndex = 0
 	rf.lastApplied = 0
+	rf.HeartBeatGap = 150
 	rf.applyCh = applyCh
 	Debug(dInfo, "S%d start to service", rf.me)
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 	rf.processCh = make(chan *Event, 256)
-	rf.stopInnertickerTimer = make(chan bool, 2)
+	rf.stoptickerCh = make(chan bool, 2)
 	rf.stopLeader = make(chan bool, 2)
-	rf.InnertickerTimer = time.NewTimer(time.Duration(50+(rand.Int63()%300)) * time.Millisecond)
+	rf.lastTickTime = time.Now()
 	// start ticker goroutine to start elections
 	go rf.ticker()
 	go rf.processEvent()
@@ -494,10 +510,10 @@ func Make(peers []*labrpc.ClientEnd, me int,
 func (rf *Raft) close() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	close(rf.processCh)
-	close(rf.applyCh)
 	if rf.rfstatus == leader {
 		rf.stopLeader <- true
 	}
-	rf.stopInnertickerTimer <- true
+	rf.stoptickerCh <- true
+	close(rf.processCh)
+	close(rf.applyCh)
 }

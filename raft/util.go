@@ -9,7 +9,7 @@ import (
 )
 
 // Debugging
-const debug = 0
+const debug = 1
 
 func getVerbosity() int {
 	v := os.Getenv("VERBOSE")
