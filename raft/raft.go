@@ -61,9 +61,8 @@ type EventType int
 
 const (
 	TickerTimeOutEvent EventType = iota
-	TickerEvent
 	VoteEvent
-	StopEvent
+	AppendLogEvent
 )
 
 type Event struct {
@@ -72,8 +71,8 @@ type Event struct {
 }
 
 type Log struct {
-	leaderTerm int
-	command    interface{}
+	LeaderTerm int
+	Command    interface{}
 }
 
 // A Go object implementing a single Raft peer.
@@ -87,24 +86,25 @@ type Raft struct {
 	// Your data here (2A, 2B, 2C).
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-	//2A
-	log            []*Log
-	logLength      int
-	currentTerm    int
-	votedFor       int
-	commitIndex    int
-	lastApplied    int
-	nextIndex      []int
-	matchIndex     []int
-	rfstatus       Rfstatus
-	processCh      chan *Event
-	applyCh        chan ApplyMsg
-	VoteCollection int
+	//for all server
+	logs        []*Log
+	logLength   int
+	currentTerm int
+	votedFor    int
+	commitIndex int
+	lastApplied int
 
+	rfstatus     Rfstatus
+	processCh    chan *Event
+	applyCh      chan ApplyMsg
 	lastTickTime time.Time
 
 	//for leader
-	HeartBeatGap int
+	HeartBeatGap   int
+	VoteCollection int
+	nextIndex      []int
+	matchIndex     []int
+	ApplyNumber    []int
 
 	//for stopTimer
 	stopLeader   chan bool
@@ -171,17 +171,31 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 }
 
 type AppendEntriesArgs struct {
-	CurrentTerm int
-	LeaderId    int
+	CurrentTerm  int
+	LeaderId     int
+	PrevLogIndex int
+	PrevLogItem  int
+	Entries      []*Log
+	LeaderCommit int
+	AppendType   AppendType
 	// Your data here (2A, 2B).
 }
+
+type AppendType int
+
+const (
+	AppendHeartBeat AppendType = iota
+	AppendLog
+)
 
 // example RequestVote RPC reply structure.
 // field names must start with capital letters!
 type AppendEntriesReply struct {
 	CurrentTerm int
+	Id          int
 	Success     bool
-	// Your data here (2A).
+	AppendType  AppendType
+	ApplyIndex  int
 }
 
 // example RequestVote RPC arguments structure.
@@ -238,19 +252,56 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	if args.CurrentTerm >= rf.currentTerm {
-		rf.lastTickTime = time.Now()
-		Debug(dClient, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
-		rf.currentTerm = args.CurrentTerm
-		if rf.rfstatus == leader {
-			Debug(dClient, "S%d receive a AppendEntries from %d, become a Client", rf.me, args.LeaderId)
-			rf.stopLeader <- true
+	if args.AppendType == AppendHeartBeat {
+		reply.AppendType = AppendHeartBeat
+		if args.CurrentTerm >= rf.currentTerm {
+			rf.lastTickTime = time.Now()
+			Debug(dLog2, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
+			rf.currentTerm = args.CurrentTerm
+			if rf.rfstatus == leader {
+				Debug(dWarn, "S%d receive a AppendEntries from %d, become a Client", rf.me, args.LeaderId)
+				rf.stopLeader <- true
+			}
+			rf.rfstatus = follower
+		} else {
+			Debug(dError, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
 		}
-		rf.rfstatus = follower
 	} else {
-		Debug(dClient, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
+		reply.AppendType = AppendLog
+		reply.Id = rf.me
+		Debug(dClient, "S%d receive a AppendLog command from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
+		if args.CurrentTerm < rf.currentTerm {
+			reply.CurrentTerm = rf.currentTerm
+			reply.Success = false
+			Debug(dClient, "S%d reject the AppendLog command because leader term is %d,local term is %d",
+				rf.me, args.CurrentTerm, rf.currentTerm)
+		} else if rf.logLength < args.PrevLogIndex || rf.logs[args.PrevLogIndex].LeaderTerm != args.PrevLogItem {
+			reply.CurrentTerm = rf.currentTerm
+			reply.Success = false
+			Debug(dClient, "S%d reject the AppendLog command because leader prevLogIndex is %d prevLogItem is %d"+
+				",local LogIndex is %d,prevLogItem is %d",
+				rf.me, args.PrevLogIndex, args.PrevLogItem, rf.logLength, rf.logs[args.PrevLogIndex].LeaderTerm)
+		} else {
+			rf.logs = rf.logs[0 : args.PrevLogIndex+1]
+			Debug(dClient, "S%d 111111 size is %d %d", rf.me, rf.logLength, len(args.Entries))
+			rf.logs = append(rf.logs, args.Entries...)
+			rf.logLength = rf.logLength + len(args.Entries)
+			Debug(dClient, "S%d agree the AppendLog,current log length is %d", rf.me, rf.logLength)
+			reply.CurrentTerm = rf.currentTerm
+			reply.Success = true
+			reply.ApplyIndex = rf.logLength
+			if args.LeaderCommit > rf.commitIndex {
+				for i := rf.commitIndex + 1; i <= args.LeaderCommit && i <= rf.logLength; i++ {
+					rf.commitIndex++
+					Debug(dClient, "S%d commit the log: Index=%d command=%v", rf.me, rf.commitIndex, rf.logs[i].Command)
+					rf.applyCh <- ApplyMsg{CommandValid: true, CommandIndex: rf.commitIndex, Command: rf.logs[i].Command}
+				}
+			}
+
+		}
 	}
 	// Your code here (2A, 2B).
 }
@@ -309,12 +360,40 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 // the leader.
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := -1
-	term := -1
-	isLeader := true
-
+	if rf.rfstatus != leader {
+		return index, rf.currentTerm, false
+	}
+	rf.processCh <- &Event{eventType: AppendLogEvent, eventData: 111}
 	// Your code here (2B).
+	Debug(dLeader, "S%d receive a command %v,index = %d, currentTerm = %d", rf.me, command, rf.logLength, rf.currentTerm)
+	rf.logs = append(rf.logs, &Log{LeaderTerm: rf.currentTerm, Command: command})
+	rf.logLength++
+	go rf.BroadcastAppendLogs()
+	return rf.logLength, rf.currentTerm, true
+}
 
-	return index, term, isLeader
+func (rf *Raft) BroadcastAppendLogs() {
+	for rf.killed() == false {
+		for i := 0; i < len(rf.peers); i++ {
+			if i == rf.me {
+				continue
+			}
+			Debug(dClient, "S%d send AppendEntries to %d", rf.me, i)
+			args := &AppendEntriesArgs{CurrentTerm: rf.currentTerm, LeaderId: rf.me, PrevLogIndex: rf.nextIndex[i] - 1, AppendType: AppendLog, LeaderCommit: rf.commitIndex}
+			args.PrevLogItem = rf.logs[args.PrevLogIndex].LeaderTerm
+			args.Entries = rf.logs[args.PrevLogIndex+1:]
+			go func(i int, args *AppendEntriesArgs) {
+				reply := &AppendEntriesReply{}
+				ok := rf.sendAppendEntries(i, args, reply)
+				if !ok {
+					Debug(dError, "S%d send AppendEntries to %d failed", rf.me, i)
+				}
+				//rf.processCh <- &Event{eventType: AppendLogEvent, eventData: reply}
+				rf.ProcessAppendLogReply(reply)
+			}(i, args)
+		}
+		time.Sleep(time.Duration(500) * time.Millisecond)
+	}
 }
 
 // the tester doesn't halt goroutines created by Raft after each test,
@@ -348,27 +427,31 @@ func (rf *Raft) processEvent() {
 			case TickerTimeOutEvent:
 				Debug(dTimer, "S%d voteTimer Time out", rf.me)
 				rf.startElection()
-			case TickerEvent:
-				Debug(dInfo, "S%d receive a Ticker Event from", rf.me)
 			case VoteEvent:
 				if rf.rfstatus != candidate {
 					continue
 				}
 				concreteStruct := event.eventData.(*RequestVoteReply)
-
 				if concreteStruct.VoteGranted == false {
 					continue
 				}
-
 				rf.VoteCollection++
 				Debug(dVote, "S%d receive a voteGrant from %d,now VoteNumber is %d", rf.me, concreteStruct.ReplyId, rf.VoteCollection)
 				if rf.VoteCollection > rf.peersNumber/2 {
 					rf.mu.Lock()
 					rf.rfstatus = leader
+					for i := 0; i < rf.peersNumber; i++ {
+						rf.nextIndex[i] = rf.logLength + 1
+						rf.matchIndex[i] = 0
+					}
 					rf.mu.Unlock()
 					Debug(dInfo, "S%d become a leader,it has win the %d vote", rf.me, rf.VoteCollection)
 					rf.BrocastHeartBeat()
 				}
+			case AppendLogEvent:
+				Debug(dLeader, "S%d term111111111111", rf.me)
+				AppendLogReply := event.eventData.(*AppendEntriesReply)
+				rf.ProcessAppendLogReply(AppendLogReply)
 			default:
 				Debug(dError, "S%d processCh receive a invalid type event %v", rf.me, event.eventData)
 			}
@@ -376,21 +459,45 @@ func (rf *Raft) processEvent() {
 	}
 }
 
-func (rf *Raft) BrocastHeartBeat() {
+func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if reply.Success == false {
+		if reply.CurrentTerm > rf.currentTerm {
+			Debug(dLeader, "S%d leader term %d is out of date,newer term is %d", rf.me, rf.currentTerm, reply.CurrentTerm)
+			rf.rfstatus = follower
+			rf.stopLeader <- true
+			return
+		}
+		rf.nextIndex[reply.Id]--
+	} else {
+		Debug(dLeader, "S%d leader term %d receive a AppendLogReply from %d", rf.me, rf.currentTerm, reply.Id)
+		rf.nextIndex[reply.Id] = reply.ApplyIndex + 1
+		rf.matchIndex[reply.Id] = reply.ApplyIndex
+		for i := rf.commitIndex + 1; i <= rf.matchIndex[reply.Id]; i++ {
+			rf.ApplyNumber[i]++
+			if rf.ApplyNumber[i] > rf.peersNumber/2 {
+				rf.commitIndex++
+				Debug(dClient, "S%d commit the log: Index=%d command=%v", rf.me, rf.commitIndex, rf.logs[rf.commitIndex].Command)
+				rf.applyCh <- ApplyMsg{CommandValid: true, CommandIndex: rf.commitIndex, Command: rf.logs[rf.commitIndex].Command}
+			}
+		}
+	}
+}
 
+func (rf *Raft) BrocastHeartBeat() {
 	for rf.killed() == false {
 		// Your code here (2A)
 		// Check if a leader election should be started.
 
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
-
 		select {
 		case <-rf.stopLeader:
-			Debug(dWarn, "[leader]S%d stop the Outerticker service", rf.me)
+			Debug(dWarn, "S%d stop the Outerticker service", rf.me)
 			return
 		default:
-			Debug(dLeader, "S%d Broadcast the Heart Beat", rf.me)
+			Debug(dLog2, "S%d Broadcast the Heart Beat", rf.me)
 			// Your code here (2A)
 			// Check if a leader election should be started.
 			rf.lastTickTime = time.Now()
@@ -401,7 +508,7 @@ func (rf *Raft) BrocastHeartBeat() {
 					continue
 				}
 				go func(i int) {
-					args := &AppendEntriesArgs{CurrentTerm: rf.currentTerm, LeaderId: rf.me}
+					args := &AppendEntriesArgs{CurrentTerm: rf.currentTerm, LeaderId: rf.me, AppendType: AppendHeartBeat}
 					reply := &AppendEntriesReply{}
 					ok := rf.sendAppendEntries(i, args, reply)
 					if !ok {
@@ -424,8 +531,10 @@ func (rf *Raft) startElection() {
 	rf.lastTickTime = time.Now()
 	rf.votedFor = rf.me
 	args := &RequestVoteArgs{
-		Term:        rf.currentTerm,
-		CandidateId: rf.me,
+		Term:         rf.currentTerm,
+		CandidateId:  rf.me,
+		LastLogIndex: rf.logLength,
+		LastLogItem:  rf.logs[rf.logLength].LeaderTerm,
 		//todo (2B)
 	}
 	rf.processCh <- &Event{eventType: VoteEvent, eventData: &RequestVoteReply{Term: rf.currentTerm, VoteGranted: true, ReplyId: rf.me}}
@@ -501,6 +610,18 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.stoptickerCh = make(chan bool, 2)
 	rf.stopLeader = make(chan bool, 2)
 	rf.lastTickTime = time.Now()
+
+	rf.logs = make([]*Log, 1)
+	rf.logs[0] = &Log{LeaderTerm: 0}
+	rf.logLength = 0
+	rf.commitIndex = 0
+	rf.lastApplied = 0
+
+	// log
+	rf.nextIndex = make([]int, rf.peersNumber)
+	rf.matchIndex = make([]int, rf.peersNumber)
+	rf.ApplyNumber = make([]int, 1000)
+
 	// start ticker goroutine to start elections
 	go rf.ticker()
 	go rf.processEvent()
