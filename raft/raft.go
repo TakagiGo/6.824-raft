@@ -218,6 +218,11 @@ type RequestVoteReply struct {
 	ReplyId     int
 }
 
+func (rf *Raft) StopLeader() {
+	rf.stopLeader <- true
+	rf.stopLeaderAppend <- true
+}
+
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
@@ -243,8 +248,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		if rf.rfstatus != follower {
 			if rf.rfstatus == leader {
 				Debug(dInfo, "S%d receive a Vote Request from %d, term is out of date", rf.me, args.CandidateId)
-				rf.stopLeader <- true
-				rf.stopLeaderAppend <- true
+				go rf.StopLeader()
 			}
 			rf.rfstatus = follower
 		}
@@ -264,8 +268,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			rf.currentTerm = args.CurrentTerm
 			if rf.rfstatus == leader {
 				Debug(dWarn, "S%d receive a AppendEntries from %d, become a Client", rf.me, args.LeaderId)
-				rf.stopLeader <- true
-				rf.stopLeaderAppend <- true
+				go rf.StopLeader()
 			}
 			rf.rfstatus = follower
 		} else {
@@ -456,7 +459,7 @@ func (rf *Raft) processEvent() {
 					}
 					rf.mu.Unlock()
 					Debug(dInfo, "S%d become a leader,it has win the %d vote", rf.me, rf.VoteCollection)
-					go rf.broadcastAppendLogs()
+					//go rf.broadcastAppendLogs()
 					go rf.BrocastHeartBeat()
 				}
 			case ApplyLogEvent:
@@ -479,7 +482,9 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 			rf.stopLeaderAppend <- true
 			return
 		}
-		//rf.nextIndex[reply.Id]--
+		if rf.nextIndex[reply.Id] >= 1 {
+			rf.nextIndex[reply.Id]--
+		}
 	} else {
 		Debug(dLeader, "S%d leader term %d receive a AppendLogReply from %d", rf.me, rf.currentTerm, reply.Id)
 		rf.nextIndex[reply.Id] = reply.ApplyIndex + 1
@@ -578,11 +583,9 @@ func (rf *Raft) ticker() {
 			Debug(dWarn, "S%d stop the ticker timer because receive a quit command", rf.me)
 			return
 		default:
-			rf.mu.Lock()
 			if time.Since(rf.lastTickTime) > time.Duration(ms)*time.Millisecond {
 				rf.processCh <- &Event{eventType: TickerTimeOutEvent}
 			}
-			rf.mu.Unlock()
 		}
 	}
 }
@@ -643,8 +646,7 @@ func (rf *Raft) close() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if rf.rfstatus == leader {
-		rf.stopLeader <- true
-		rf.stopLeaderAppend <- true
+		rf.StopLeader()
 	}
 	rf.stoptickerCh <- true
 	close(rf.processCh)
