@@ -105,11 +105,6 @@ type Raft struct {
 	nextIndex      []int
 	matchIndex     []int
 	ApplyNumber    []int
-
-	//for stopTimer
-	stopLeader       chan bool
-	stoptickerCh     chan bool
-	stopLeaderAppend chan bool
 }
 
 // return currentTerm and whether this server
@@ -218,11 +213,6 @@ type RequestVoteReply struct {
 	ReplyId     int
 }
 
-func (rf *Raft) StopLeader() {
-	rf.stopLeader <- true
-	rf.stopLeaderAppend <- true
-}
-
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
@@ -246,10 +236,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		rf.votedFor = args.CandidateId
 		reply.VoteGranted = true
 		if rf.rfstatus != follower {
-			if rf.rfstatus == leader {
-				Debug(dInfo, "S%d receive a Vote Request from %d, term is out of date", rf.me, args.CandidateId)
-				go rf.StopLeader()
-			}
+			Debug(dInfo, "S%d receive a Vote Request from %d, term is out of date", rf.me, args.CandidateId)
+			rf.lastTickTime = time.Now()
 			rf.rfstatus = follower
 		}
 		//todo 2B
@@ -266,10 +254,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			rf.lastTickTime = time.Now()
 			Debug(dLog2, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
 			rf.currentTerm = args.CurrentTerm
-			if rf.rfstatus == leader {
-				Debug(dWarn, "S%d receive a AppendEntries from %d, become a Client", rf.me, args.LeaderId)
-				go rf.StopLeader()
-			}
+			Debug(dWarn, "S%d receive a AppendEntries from %d, become a Client", rf.me, args.LeaderId)
+			rf.lastTickTime = time.Now()
 			rf.rfstatus = follower
 		} else {
 			Debug(dError, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
@@ -378,10 +364,13 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 func (rf *Raft) broadcastAppendLogs() {
 	for rf.killed() == false {
 		select {
-		case <-rf.stopLeaderAppend:
-			Debug(dWarn, "S%d stop the broadcastAppendLogs service", rf.me)
-			return
+		//case <-rf.stopLeaderAppend:
+		//	Debug(dWarn, "S%d stop the broadcastAppendLogs service", rf.me)
+		//	return
 		default:
+			if rf.rfstatus != leader {
+				continue
+			}
 			for i := 0; i < len(rf.peers); i++ {
 				if i == rf.me {
 					continue
@@ -389,7 +378,6 @@ func (rf *Raft) broadcastAppendLogs() {
 				rf.mu.Lock()
 				args := &AppendEntriesArgs{CurrentTerm: rf.currentTerm, LeaderId: rf.me, PrevLogIndex: rf.nextIndex[i] - 1, AppendType: AppendLog, LeaderCommit: rf.commitIndex}
 				Debug(dLeader, "S%d PrevLogItem=%d", rf.me, args.PrevLogIndex)
-
 				args.PrevLogItem = rf.logs[args.PrevLogIndex].LeaderTerm
 				args.Entries = rf.logs[args.PrevLogIndex+1:]
 				rf.mu.Unlock()
@@ -478,8 +466,6 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 		if reply.CurrentTerm > rf.currentTerm {
 			Debug(dLeader, "S%d leader term %d is out of date,newer term is %d", rf.me, rf.currentTerm, reply.CurrentTerm)
 			rf.rfstatus = follower
-			rf.stopLeader <- true
-			rf.stopLeaderAppend <- true
 			return
 		}
 		if rf.nextIndex[reply.Id] >= 1 {
@@ -508,12 +494,15 @@ func (rf *Raft) BrocastHeartBeat() {
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
 		select {
-		case <-rf.stopLeader:
-			Debug(dWarn, "S%d stop the Outerticker service", rf.me)
-			return
+		//case <-rf.stopLeader:
+		//	Debug(dWarn, "S%d stop the Outerticker service", rf.me)
+		//	return
 		default:
-			Debug(dLog2, "S%d Broadcast the Heart Beat", rf.me)
 			// Your code here (2A)
+			if rf.rfstatus != leader {
+				return
+			}
+			Debug(dLog2, "S%d Broadcast the Heart Beat", rf.me)
 			// Check if a leader election should be started.
 			rf.lastTickTime = time.Now()
 			// pause for a random amount of time between 50 and 350
@@ -577,16 +566,13 @@ func (rf *Raft) ticker() {
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
 		ms := 150 + (rand.Int63() % 300)
-		time.Sleep(time.Duration(ms) * time.Millisecond)
 		select {
-		case <-rf.stoptickerCh:
-			Debug(dWarn, "S%d stop the ticker timer because receive a quit command", rf.me)
-			return
 		default:
 			if time.Since(rf.lastTickTime) > time.Duration(ms)*time.Millisecond {
 				rf.processCh <- &Event{eventType: TickerTimeOutEvent}
 			}
 		}
+		time.Sleep(time.Duration(ms) * time.Millisecond)
 	}
 }
 
@@ -614,15 +600,12 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.votedFor = -1
 	rf.commitIndex = 0
 	rf.lastApplied = 0
-	rf.HeartBeatGap = 150
+	rf.HeartBeatGap = 100
 	rf.applyCh = applyCh
 	Debug(dInfo, "S%d start to service", rf.me)
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 	rf.processCh = make(chan *Event, 256)
-	rf.stoptickerCh = make(chan bool, 2)
-	rf.stopLeader = make(chan bool, 2)
-	rf.stopLeaderAppend = make(chan bool, 2)
 	rf.lastTickTime = time.Now()
 
 	rf.logs = make([]*Log, 1)
@@ -643,12 +626,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) close() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	if rf.rfstatus == leader {
-		rf.StopLeader()
-	}
-	rf.stoptickerCh <- true
 	close(rf.processCh)
 	close(rf.applyCh)
 }
