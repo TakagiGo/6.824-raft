@@ -227,7 +227,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.Term = rf.currentTerm
 		reply.ReplyId = rf.me
 		reply.VoteGranted = false
-	} else if rf.logLength > args.LastLogIndex {
+	} else if rf.logs[rf.logLength].LeaderTerm > args.LastLogItem || (rf.logLength > args.LastLogIndex && rf.logs[rf.logLength].LeaderTerm == args.LastLogItem) {
 		Debug(dInfo, "S%d receive a Vote Request from %d,but LogIndex %d is smaller then me %d", rf.me, args.CandidateId, args.LastLogIndex, rf.logLength)
 		reply.Term = rf.currentTerm
 		reply.ReplyId = rf.me
@@ -278,17 +278,16 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				rf.me, args.CurrentTerm, rf.currentTerm)
 		} else if args.PrevLogIndex > rf.logLength {
 			reply.Success = false
-			Debug(dClient, "S%d reject the AppendLog command because leader PrevLogIndex %d, rf.loglength %d", rf.me, args.PrevLogIndex,
+			Debug(dDrop, "S%d reject the AppendLog command because leader PrevLogIndex %d, rf.loglength %d", rf.me, args.PrevLogIndex,
 				rf.logLength)
 		} else if rf.logLength < args.PrevLogIndex || rf.logs[args.PrevLogIndex].LeaderTerm != args.PrevLogItem {
 			reply.CurrentTerm = rf.currentTerm
 			reply.Success = false
-			Debug(dClient, "S%d reject the AppendLog command because leader prevLogIndex is %d prevLogItem is %d"+
+			Debug(dDrop, "S%d reject the AppendLog command because leader prevLogIndex is %d prevLogItem is %d"+
 				",local LogIndex is %d,prevLogItem is %d",
 				rf.me, args.PrevLogIndex, args.PrevLogItem, rf.logLength, rf.logs[args.PrevLogIndex].LeaderTerm)
 		} else {
 			rf.logs = rf.logs[0 : args.PrevLogIndex+1]
-			Debug(dClient, "S%d 111111 size is %d %d", rf.me, rf.logLength, len(args.Entries))
 			rf.logs = append(rf.logs, args.Entries...)
 			rf.logLength = len(rf.logs) - 1
 			Debug(dClient, "S%d agree the AppendLog,current log length is %d", rf.me, rf.logLength)
@@ -362,12 +361,16 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 // the leader.
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := -1
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
 	if rf.rfstatus == leader {
 		// Your code here (2B).
-		Debug(dLeader, "S%d receive a command,index = %d, currentTerm = %d", rf.me, rf.logLength, rf.currentTerm)
+
 		rf.logs = append(rf.logs, &Log{LeaderTerm: rf.currentTerm, Command: command})
 		rf.logLength++
+		Debug(dLog, "S%d receive a command,index = %d, currentTerm = %d", rf.me, rf.logLength, rf.currentTerm)
 		rf.ApplyNumber[rf.logLength] = make(map[int]bool)
+		rf.ApplyNumber[rf.logLength][rf.me] = true
 		return rf.logLength, rf.currentTerm, true
 	}
 	return index, rf.currentTerm, false
@@ -490,7 +493,12 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 		rf.nextIndex[reply.Id] = reply.ApplyIndex + 1
 		rf.matchIndex[reply.Id] = reply.ApplyIndex
 		for i := rf.commitIndex + 1; i <= rf.matchIndex[reply.Id]; i++ {
+			if rf.ApplyNumber[i] == nil {
+				rf.ApplyNumber[i] = make(map[int]bool)
+				rf.ApplyNumber[i][rf.me] = true
+			}
 			rf.ApplyNumber[i][reply.Id] = true
+			//Debug(dTrace, "S%d leader term %d receive a AppendLogReply from %d Index= %d", rf.me, rf.currentTerm, reply.Id, reply.ApplyIndex)
 			if len(rf.ApplyNumber[i]) > rf.peersNumber/2 {
 				rf.commitIndex++
 				Debug(dCommit, "S%d commit the log: Index=%d,current number is %d", rf.me, rf.commitIndex, len(rf.ApplyNumber[i]))
