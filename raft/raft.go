@@ -187,11 +187,12 @@ const (
 // example RequestVote RPC reply structure.
 // field names must start with capital letters!
 type AppendEntriesReply struct {
-	CurrentTerm int
-	Id          int
-	Success     bool
-	AppendType  AppendType
-	ApplyIndex  int
+	CurrentTerm    int
+	Id             int
+	Success        bool
+	AppendType     AppendType
+	ApplyIndex     int
+	FailFirstIndex int
 }
 
 // example RequestVote RPC arguments structure.
@@ -228,14 +229,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.ReplyId = rf.me
 		reply.VoteGranted = false
 	} else if rf.logs[rf.logLength].LeaderTerm > args.LastLogItem || (rf.logLength > args.LastLogIndex && rf.logs[rf.logLength].LeaderTerm == args.LastLogItem) {
-		Debug(dInfo, "S%d receive a Vote Request from %d,but LogIndex %d is smaller then me %d", rf.me, args.CandidateId, args.LastLogIndex, rf.logLength)
+		Debug(dInfo, "S%d receive a Vote Request from %d,but LogIndex leader=%d < me=%d || LeaderTerm leader=%d < me=%d", rf.me, args.CandidateId, args.LastLogIndex, rf.logLength, args.LastLogItem, rf.logs[rf.logLength].LeaderTerm)
 		reply.Term = rf.currentTerm
 		reply.ReplyId = rf.me
 		reply.VoteGranted = false
 	} else {
 		Debug(dInfo, "S%d receive a Vote Request from %d, vote for it", rf.me, args.CandidateId)
 		rf.lastTickTime = time.Now()
-		rf.currentTerm = args.Term
+		//rf.currentTerm = args.Term
 		reply.Term = rf.currentTerm
 		reply.ReplyId = rf.me
 		rf.votedFor = args.CandidateId
@@ -246,6 +247,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			rf.rfstatus = follower
 		}
 		//todo 2B
+	}
+	if rf.currentTerm < args.Term {
+		rf.currentTerm = args.Term
+		if rf.rfstatus != follower {
+			Debug(dInfo, "S%d receive a Vote Request from %d, term is out of date", rf.me, args.CandidateId)
+			rf.lastTickTime = time.Now()
+			rf.rfstatus = follower
+		}
 	}
 	// Your code here (2A, 2B).
 }
@@ -270,22 +279,36 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	} else {
 		reply.AppendType = AppendLog
 		reply.Id = rf.me
-		Debug(dClient, "S%d receive a AppendLog command from leader %d,PrevLogItem=%d PrevLogIndex=%d", rf.me, args.LeaderId, args.CurrentTerm, args.PrevLogIndex)
+		Debug(dClient, "S%d receive a AppendLog command from leader %d,PrevLogItem=%d PrevLogIndex=%d", rf.me, args.LeaderId, args.PrevLogItem, args.PrevLogIndex)
 		if args.CurrentTerm < rf.currentTerm {
 			reply.CurrentTerm = rf.currentTerm
 			reply.Success = false
 			Debug(dClient, "S%d reject the AppendLog command because leader term is %d,local term is %d",
 				rf.me, args.CurrentTerm, rf.currentTerm)
+			Debug(dClient, "111reply.FailFirstIndex is", reply.FailFirstIndex)
 		} else if args.PrevLogIndex > rf.logLength {
 			reply.Success = false
-			Debug(dDrop, "S%d reject the AppendLog command because leader PrevLogIndex %d, rf.loglength %d", rf.me, args.PrevLogIndex,
-				rf.logLength)
-		} else if rf.logLength < args.PrevLogIndex || rf.logs[args.PrevLogIndex].LeaderTerm != args.PrevLogItem {
+			reply.FailFirstIndex = rf.logLength + 1
+			Debug(dClient, "S%d reject the AppendLog command because leader PrevLogIndex %d, rf.loglength %d", rf.me, args.PrevLogIndex, rf.logLength)
+			Debug(dClient, "222reply.FailFirstIndex is", reply.FailFirstIndex)
+		} else if rf.logs[args.PrevLogIndex].LeaderTerm != args.PrevLogItem {
 			reply.CurrentTerm = rf.currentTerm
 			reply.Success = false
-			Debug(dDrop, "S%d reject the AppendLog command because leader prevLogIndex is %d prevLogItem is %d"+
+			flag := false
+			for index := 1; index < rf.logLength && index < args.PrevLogIndex; index++ {
+				if rf.logs[index].LeaderTerm == args.PrevLogItem {
+					reply.FailFirstIndex = index
+					flag = true
+					break
+				}
+			}
+			if !flag {
+				reply.FailFirstIndex = 1
+			}
+			Debug(dClient, "S%d reject the AppendLog command because leader prevLogIndex is %d prevLogItem is %d"+
 				",local LogIndex is %d,prevLogItem is %d",
 				rf.me, args.PrevLogIndex, args.PrevLogItem, rf.logLength, rf.logs[args.PrevLogIndex].LeaderTerm)
+			Debug(dClient, "333reply.FailFirstIndex is", reply.FailFirstIndex)
 		} else {
 			rf.logs = rf.logs[0 : args.PrevLogIndex+1]
 			rf.logs = append(rf.logs, args.Entries...)
@@ -399,13 +422,14 @@ func (rf *Raft) broadcastAppendLogs() {
 					ok := rf.sendAppendEntries(i, args, reply)
 					if !ok {
 						Debug(dError, "S%d send AppendEntries to %d failed", rf.me, i)
+					} else {
+						rf.ProcessAppendLogReply(reply)
 					}
 					//rf.processCh <- &Event{eventType: AppendLogEvent, eventData: reply}
-					rf.ProcessAppendLogReply(reply)
 				}(i, args)
 			}
 		}
-		time.Sleep(time.Duration(500) * time.Millisecond)
+		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 }
 
@@ -484,10 +508,12 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 			rf.rfstatus = follower
 			return
 		}
-		if rf.nextIndex[reply.Id] >= 2 {
-			rf.nextIndex[reply.Id]--
-			Debug(dLeader, "S%d leader fail to send AppendLog to %d, nextIndex--. nextIndex = %d", rf.me, reply.Id, rf.nextIndex[reply.Id])
-		}
+		//if rf.nextIndex[reply.Id] >= 2 {
+		//	rf.nextIndex[reply.Id]--
+		//	Debug(dLeader, "S%d leader fail to send AppendLog to %d, nextIndex--. nextIndex = %d", rf.me, reply.Id, rf.nextIndex[reply.Id])
+		//}
+		rf.nextIndex[reply.Id] = reply.FailFirstIndex
+		Debug(dLeader, "S%d leader rf.nextIndex[%d]. nextIndex = %d", rf.me, reply.Id, rf.nextIndex[reply.Id])
 	} else {
 		Debug(dLeader, "S%d leader term %d receive a AppendLogReply from %d Index= %d", rf.me, rf.currentTerm, reply.Id, reply.ApplyIndex)
 		rf.nextIndex[reply.Id] = reply.ApplyIndex + 1
@@ -538,7 +564,7 @@ func (rf *Raft) BrocastHeartBeat() {
 					reply := &AppendEntriesReply{}
 					ok := rf.sendAppendEntries(i, args, reply)
 					if !ok {
-						Debug(dError, "S%d send AppendEntries to %d failed", rf.me, i)
+						Debug(dError, "S%d Brocast Heart Beat to %d failed", rf.me, i)
 					}
 				}(i)
 			}
@@ -596,6 +622,7 @@ func (rf *Raft) ticker() {
 		}
 		time.Sleep(time.Duration(ms) * time.Millisecond)
 	}
+	close(rf.processCh)
 }
 
 // the service or tester wants to create a Raft server. the ports
@@ -649,6 +676,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) close() {
-	close(rf.processCh)
+	//close(rf.processCh)
 	close(rf.applyCh)
 }
