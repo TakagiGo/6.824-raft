@@ -285,30 +285,30 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			reply.Success = false
 			Debug(dClient, "S%d reject the AppendLog command because leader term is %d,local term is %d",
 				rf.me, args.CurrentTerm, rf.currentTerm)
-			Debug(dClient, "111reply.FailFirstIndex is", reply.FailFirstIndex)
+			Debug(dClient, "111reply.FailFirstIndex is %d", reply.FailFirstIndex)
 		} else if args.PrevLogIndex > rf.logLength {
 			reply.Success = false
 			reply.FailFirstIndex = rf.logLength + 1
 			Debug(dClient, "S%d reject the AppendLog command because leader PrevLogIndex %d, rf.loglength %d", rf.me, args.PrevLogIndex, rf.logLength)
-			Debug(dClient, "222reply.FailFirstIndex is", reply.FailFirstIndex)
+			Debug(dClient, "222reply.FailFirstIndex is %d", reply.FailFirstIndex)
 		} else if rf.logs[args.PrevLogIndex].LeaderTerm != args.PrevLogItem {
 			reply.CurrentTerm = rf.currentTerm
 			reply.Success = false
-			flag := false
-			for index := 1; index < rf.logLength && index < args.PrevLogIndex; index++ {
-				if rf.logs[index].LeaderTerm == args.PrevLogItem {
-					reply.FailFirstIndex = index
-					flag = true
-					break
-				}
-			}
-			if !flag {
-				reply.FailFirstIndex = 1
-			}
+			//flag := false
+			//for index := 1; index < rf.logLength && index < args.PrevLogIndex; index++ {
+			//	if rf.logs[index].LeaderTerm == args.PrevLogItem {
+			//		reply.FailFirstIndex = index + 1
+			//		flag = true
+			//		break
+			//	}
+			//}
+			//if !flag {
+			//	reply.FailFirstIndex = -1
+			//}
 			Debug(dClient, "S%d reject the AppendLog command because leader prevLogIndex is %d prevLogItem is %d"+
 				",local LogIndex is %d,prevLogItem is %d",
 				rf.me, args.PrevLogIndex, args.PrevLogItem, rf.logLength, rf.logs[args.PrevLogIndex].LeaderTerm)
-			Debug(dClient, "333reply.FailFirstIndex is", reply.FailFirstIndex)
+			Debug(dClient, "333reply.FailFirstIndex is %d", reply.FailFirstIndex)
 		} else {
 			rf.logs = rf.logs[0 : args.PrevLogIndex+1]
 			rf.logs = append(rf.logs, args.Entries...)
@@ -359,8 +359,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 // the struct itself.
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
-	if ok && rf.processCh != nil {
-		rf.processCh <- &Event{eventType: VoteEvent, eventData: reply}
+	if ok {
+		go rf.startVote(reply)
 	}
 	return ok
 }
@@ -425,7 +425,6 @@ func (rf *Raft) broadcastAppendLogs() {
 					} else {
 						rf.ProcessAppendLogReply(reply)
 					}
-					//rf.processCh <- &Event{eventType: AppendLogEvent, eventData: reply}
 				}(i, args)
 			}
 		}
@@ -454,47 +453,6 @@ func (rf *Raft) killed() bool {
 	return z == 1
 }
 
-func (rf *Raft) processEvent() {
-	for rf.killed() == false {
-		if event, ok := <-rf.processCh; !ok {
-			Debug(dWarn, "S%d processCh is closed,break", rf.me)
-			return
-		} else {
-			switch event.eventType {
-			case TickerTimeOutEvent:
-				Debug(dTimer, "S%d voteTimer Time out", rf.me)
-				rf.startElection()
-			case VoteEvent:
-				if rf.rfstatus != candidate {
-					continue
-				}
-				concreteStruct := event.eventData.(*RequestVoteReply)
-				if concreteStruct.VoteGranted == false {
-					continue
-				}
-				rf.VoteCollection++
-				Debug(dVote, "S%d receive a voteGrant from %d,now VoteNumber is %d", rf.me, concreteStruct.ReplyId, rf.VoteCollection)
-				if rf.VoteCollection > rf.peersNumber/2 {
-					rf.mu.Lock()
-					rf.rfstatus = leader
-					for i := 0; i < rf.peersNumber; i++ {
-						rf.nextIndex[i] = rf.logLength + 1
-						rf.matchIndex[i] = 0
-					}
-					rf.mu.Unlock()
-					Debug(dInfo, "S%d become a leader,it has win the %d vote", rf.me, rf.VoteCollection)
-					go rf.broadcastAppendLogs()
-					go rf.BrocastHeartBeat()
-				}
-			case ApplyLogEvent:
-
-			default:
-				Debug(dError, "S%d processCh receive a invalid type event %v", rf.me, event.eventData)
-			}
-		}
-	}
-}
-
 func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -512,7 +470,16 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 		//	rf.nextIndex[reply.Id]--
 		//	Debug(dLeader, "S%d leader fail to send AppendLog to %d, nextIndex--. nextIndex = %d", rf.me, reply.Id, rf.nextIndex[reply.Id])
 		//}
-		rf.nextIndex[reply.Id] = reply.FailFirstIndex
+		if rf.nextIndex[reply.Id] >= 2 {
+			rf.nextIndex[reply.Id]--
+		}
+		//if reply.FailFirstIndex != -1 {
+		//	rf.nextIndex[reply.Id] = reply.FailFirstIndex
+		//} else {
+		//	if rf.nextIndex[reply.Id] >= 2 {
+		//		rf.nextIndex[reply.Id]--
+		//	}
+		//}
 		Debug(dLeader, "S%d leader rf.nextIndex[%d]. nextIndex = %d", rf.me, reply.Id, rf.nextIndex[reply.Id])
 	} else {
 		Debug(dLeader, "S%d leader term %d receive a AppendLogReply from %d Index= %d", rf.me, rf.currentTerm, reply.Id, reply.ApplyIndex)
@@ -542,9 +509,6 @@ func (rf *Raft) BrocastHeartBeat() {
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
 		select {
-		//case <-rf.stopLeader:
-		//	Debug(dWarn, "S%d stop the Outerticker service", rf.me)
-		//	return
 		default:
 			// Your code here (2A)
 			if rf.rfstatus != leader {
@@ -589,7 +553,8 @@ func (rf *Raft) startElection() {
 		LastLogItem:  rf.logs[rf.logLength].LeaderTerm,
 		//todo (2B)
 	}
-	rf.processCh <- &Event{eventType: VoteEvent, eventData: &RequestVoteReply{Term: rf.currentTerm, VoteGranted: true, ReplyId: rf.me}}
+	eventData := &RequestVoteReply{Term: rf.currentTerm, VoteGranted: true, ReplyId: rf.me}
+	go rf.startVote(eventData)
 	Debug(dVote, "S%d broadcast the vote %v", rf.me, args)
 	for i := 0; i < len(rf.peers); i++ {
 		if i == rf.me {
@@ -605,6 +570,29 @@ func (rf *Raft) startElection() {
 	}
 }
 
+func (rf *Raft) startVote(reply *RequestVoteReply) {
+	if rf.rfstatus != candidate {
+		return
+	}
+	if reply.VoteGranted == false {
+		return
+	}
+	rf.VoteCollection++
+	Debug(dVote, "S%d receive a voteGrant from %d,now VoteNumber is %d", rf.me, reply.ReplyId, rf.VoteCollection)
+	if rf.VoteCollection > rf.peersNumber/2 {
+		rf.mu.Lock()
+		rf.rfstatus = leader
+		for i := 0; i < rf.peersNumber; i++ {
+			rf.nextIndex[i] = rf.logLength + 1
+			rf.matchIndex[i] = 0
+		}
+		rf.mu.Unlock()
+		Debug(dInfo, "S%d become a leader,it has win the %d vote", rf.me, rf.VoteCollection)
+		go rf.broadcastAppendLogs()
+		go rf.BrocastHeartBeat()
+	}
+}
+
 func (rf *Raft) ticker() {
 	for rf.killed() == false {
 		Debug(dTimer, "S%d start the voteTimer", rf.me)
@@ -617,12 +605,12 @@ func (rf *Raft) ticker() {
 		select {
 		default:
 			if time.Since(rf.lastTickTime) > time.Duration(ms)*time.Millisecond {
-				rf.processCh <- &Event{eventType: TickerTimeOutEvent}
+				Debug(dTimer, "S%d voteTimer Time out", rf.me)
+				rf.startElection()
 			}
 		}
 		time.Sleep(time.Duration(ms) * time.Millisecond)
 	}
-	close(rf.processCh)
 }
 
 // the service or tester wants to create a Raft server. the ports
@@ -654,7 +642,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	Debug(dInfo, "S%d start to service", rf.me)
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
-	rf.processCh = make(chan *Event, 256)
 	rf.lastTickTime = time.Now()
 
 	rf.logs = make([]*Log, 1)
@@ -671,11 +658,9 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
-	go rf.processEvent()
 	return rf
 }
 
 func (rf *Raft) close() {
-	//close(rf.processCh)
 	close(rf.applyCh)
 }
