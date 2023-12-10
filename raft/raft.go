@@ -410,28 +410,21 @@ func (rf *Raft) broadcastAppendLogs() {
 	for rf.killed() == false {
 		select {
 		default:
+			rf.mu.Lock()
 			if rf.rfstatus != leader {
+				rf.mu.Unlock()
 				break
 			}
 			for i := 0; i < len(rf.peers); i++ {
 				if i == rf.me {
 					continue
 				}
-
-				rf.mu.Lock()
-				if rf.rfstatus != leader {
-					rf.mu.Unlock()
-					break
-				}
 				args := &AppendEntriesArgs{CurrentTerm: rf.currentTerm, LeaderId: rf.me, PrevLogIndex: rf.nextIndex[i] - 1, AppendType: AppendLog, LeaderCommit: rf.commitIndex}
 				Debug(dLeader, "S%d send to %d PrevLogItem=%d", rf.me, i, args.PrevLogIndex)
 				args.PrevLogItem = rf.logs[args.PrevLogIndex].LeaderTerm
-
 				args.Entries = rf.logs[args.PrevLogIndex+1:]
-
-				rf.mu.Unlock()
 				if rf.lastIndex[i] != nil && rf.lastIndex[i].PrevLogIndex == args.PrevLogIndex && rf.lastIndex[i].LeaderCommit == args.LeaderCommit && len(rf.lastIndex[i].Entries) == len(args.Entries) {
-					Debug(dLeader, "send rf.lastIndex[i].PrevLogIndex", i, rf.lastIndex[i].PrevLogIndex)
+					Debug(dLog2, "s%d send equal broadcastAppendLogs", i)
 					continue
 				}
 				rf.lastIndex[i] = args
@@ -440,12 +433,14 @@ func (rf *Raft) broadcastAppendLogs() {
 					reply := &AppendEntriesReply{}
 					ok := rf.sendAppendEntries(i, args, reply)
 					if !ok {
+						rf.lastIndex[i] = nil
 						Debug(dError, "S%d send AppendEntries to %d failed", rf.me, i)
 					} else {
 						rf.ProcessAppendLogReply(reply)
 					}
 				}(i, args)
 			}
+			rf.mu.Unlock()
 		}
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
@@ -485,11 +480,6 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 			rf.currentTerm = reply.CurrentTerm
 			return
 		}
-		//if rf.nextIndex[reply.Id] >= 2 {
-		//	rf.nextIndex[reply.Id]--
-		//	Debug(dLeader, "S%d leader fail to send AppendLog to %d, nextIndex--. nextIndex = %d", rf.me, reply.Id, rf.nextIndex[reply.Id])
-		//}
-
 		if reply.FailFirstIndex != -1 {
 			rf.nextIndex[reply.Id] = reply.FailFirstIndex
 		} else {
@@ -505,10 +495,6 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 				rf.nextIndex[reply.Id] = 1
 			}
 		}
-		//	if rf.nextIndex[reply.Id] >= 2 {
-		//		rf.nextIndex[reply.Id]--
-		//	}
-		//}
 		Debug(dLeader, "S%d leader rf.nextIndex[%d]. nextIndex = %d", rf.me, reply.Id, rf.nextIndex[reply.Id])
 	} else {
 		Debug(dLeader, "S%d leader term %d receive a AppendLogReply from %d Index= %d", rf.me, rf.currentTerm, reply.Id, reply.ApplyIndex)
