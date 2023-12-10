@@ -18,6 +18,8 @@ package raft
 //
 
 import (
+	"6.5840/labgob"
+	"bytes"
 	//	"bytes"
 	"math/rand"
 	"sync"
@@ -130,32 +132,39 @@ func (rf *Raft) GetState() (int, bool) {
 func (rf *Raft) persist() {
 	// Your code here (2C).
 	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// raftstate := w.Bytes()
-	// rf.persister.Save(raftstate, nil)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.logs)
+	raftstate := w.Bytes()
+	Debug(dPersist, "s%d persist the log,length is %d", rf.me, len(raftstate))
+	rf.persister.Save(raftstate, nil)
 }
 
 // restore previously persisted state.
 func (rf *Raft) readPersist(data []byte) {
-	if data == nil || len(data) < 1 { // bootstrap without any state?
+	Debug(dLog, "s%d readPersist persist length is %d", rf.me, len(data))
+	if data == nil || len(data) < 1 {
+		Debug(dLog, "333 readfailed") // bootstrap without any state?
 		return
 	}
 	// Your code here (2C).
 	// Example:
-	// r := bytes.NewBuffer(data)
-	// d := labgob.NewDecoder(r)
-	// var xxx
-	// var yyy
-	// if d.Decode(&xxx) != nil ||
-	//    d.Decode(&yyy) != nil {
-	//   error...
-	// } else {
-	//   rf.xxx = xxx
-	//   rf.yyy = yyy
-	// }
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	var currentTerm int
+	var votedFor int
+	var logs []*Log
+	if d.Decode(&currentTerm) != nil ||
+		d.Decode(&votedFor) != nil || d.Decode(&logs) != nil {
+		Debug(dError, "S%d readPersist Failed", rf.me)
+	} else {
+		rf.currentTerm = currentTerm
+		rf.votedFor = votedFor
+		rf.logs = logs
+		Debug(dWarn, "S%d currentTerm is %d", rf.me, currentTerm)
+	}
 }
 
 // the service says it has created a snapshot that has
@@ -215,6 +224,21 @@ type RequestVoteReply struct {
 	ReplyId     int
 }
 
+func (rf *Raft) UpdateTerm(term int) {
+	rf.currentTerm = term
+	rf.persist()
+}
+
+func (rf *Raft) UpdateVoteFor(voteFor int) {
+	rf.votedFor = voteFor
+	rf.persist()
+}
+
+func (rf *Raft) UpdateLogs(Logs []*Log) {
+	rf.logs = Logs
+	rf.persist()
+}
+
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
@@ -237,10 +261,10 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	} else {
 		Debug(dInfo, "S%d receive a Vote Request from %d, vote for it", rf.me, args.CandidateId)
 		rf.lastTickTime = time.Now()
-		//rf.currentTerm = args.Term
 		reply.Term = rf.currentTerm
 		reply.ReplyId = rf.me
-		rf.votedFor = args.CandidateId
+		rf.UpdateVoteFor(args.CandidateId)
+		//rf.votedFor = args.CandidateId
 		reply.VoteGranted = true
 		if rf.rfstatus != follower {
 			Debug(dInfo, "S%d receive a Vote Request from %d, term is out of date", rf.me, args.CandidateId)
@@ -250,7 +274,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		//todo 2B
 	}
 	if rf.currentTerm < args.Term {
-		rf.currentTerm = args.Term
+		//rf.currentTerm = args.Term
+		rf.UpdateTerm(args.Term)
 		if rf.rfstatus != follower {
 			Debug(dInfo, "S%d receive a Vote Request from %d, term is out of date", rf.me, args.CandidateId)
 			rf.lastTickTime = time.Now()
@@ -268,7 +293,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		if args.CurrentTerm >= rf.currentTerm {
 			rf.lastTickTime = time.Now()
 			Debug(dLog2, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
-			rf.currentTerm = args.CurrentTerm
+			//rf.currentTerm = args.CurrentTerm
+			rf.UpdateTerm(args.CurrentTerm)
 			if rf.rfstatus != follower {
 				Debug(dWarn, "S%d receive a heartbeat from %d, become a Client", rf.me, args.LeaderId)
 				rf.lastTickTime = time.Now()
@@ -291,7 +317,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		} else if args.PrevLogIndex > rf.logLength {
 			reply.Success = false
 			reply.FailFirstIndex = rf.logLength + 1
-
 			Debug(dClient, "S%d reject the AppendLog command because leader PrevLogIndex %d, rf.loglength %d", rf.me, args.PrevLogIndex, rf.logLength)
 			Debug(dClient, "222reply.FailFirstIndex is %d", reply.FailFirstIndex)
 		} else if rf.logs[args.PrevLogIndex].LeaderTerm != args.PrevLogItem {
@@ -315,7 +340,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			Debug(dClient, "333reply.FailFirstIndex is %d", reply.FailFirstIndex)
 		} else {
 			rf.logs = rf.logs[0 : args.PrevLogIndex+1]
-			rf.logs = append(rf.logs, args.Entries...)
+			//rf.logs = append(rf.logs, args.Entries...)
+			rf.UpdateLogs(append(rf.logs, args.Entries...))
 			for i := args.PrevLogIndex + 1; i < len(rf.logs); i++ {
 				Debug(dClient, "S%d append log %v Index=%d from leader %d", rf.me, rf.logs[i].Command, i, args.LeaderId)
 			}
@@ -396,7 +422,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	if rf.rfstatus == leader {
 		// Your code here (2B).
 
-		rf.logs = append(rf.logs, &Log{LeaderTerm: rf.currentTerm, Command: command})
+		//rf.logs = append(rf.logs, &Log{LeaderTerm: rf.currentTerm, Command: command})
+		rf.UpdateLogs(append(rf.logs, &Log{LeaderTerm: rf.currentTerm, Command: command}))
 		rf.logLength++
 		Debug(dLog, "S%d receive a command,index = %d, currentTerm = %d", rf.me, rf.logLength, rf.currentTerm)
 		rf.ApplyNumber[rf.logLength] = make(map[int]bool)
@@ -477,7 +504,8 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 		if reply.CurrentTerm > rf.currentTerm {
 			Debug(dLeader, "S%d leader term %d is out of date,newer term is %d", rf.me, rf.currentTerm, reply.CurrentTerm)
 			rf.rfstatus = follower
-			rf.currentTerm = reply.CurrentTerm
+			rf.UpdateTerm(reply.CurrentTerm)
+			//rf.currentTerm = reply.CurrentTerm
 			return
 		}
 		if reply.FailFirstIndex != -1 {
@@ -560,7 +588,8 @@ func (rf *Raft) startElection() {
 	rf.VoteCollection = 0
 	rf.currentTerm++
 	rf.lastTickTime = time.Now()
-	rf.votedFor = rf.me
+	//rf.votedFor = rf.me
+	rf.UpdateVoteFor(rf.me)
 	args := &RequestVoteArgs{
 		Term:         rf.currentTerm,
 		CandidateId:  rf.me,
@@ -655,13 +684,13 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.HeartBeatGap = 100
 	rf.applyCh = applyCh
 	Debug(dInfo, "S%d start to service", rf.me)
+	rf.logs = make([]*Log, 1)
+	rf.logs[0] = &Log{LeaderTerm: 0}
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 	rf.lastTickTime = time.Now()
 
-	rf.logs = make([]*Log, 1)
-	rf.logs[0] = &Log{LeaderTerm: 0}
-	rf.logLength = 0
+	rf.logLength = len(rf.logs) - 1
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 
