@@ -293,37 +293,31 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	defer rf.mu.Unlock()
 	if rf.killed() == false {
 		if args.AppendType == AppendHeartBeat {
-			reply.AppendType = AppendHeartBeat
 			if args.CurrentTerm >= rf.currentTerm {
 				rf.lastTickTime = time.Now()
 				Debug(dLog2, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
 				//rf.currentTerm = args.CurrentTerm
 				rf.UpdateTerm(args.CurrentTerm)
 				if rf.rfstatus != follower {
-					Debug(dWarn, "S%d receive a heartbeat from %d, become a Client", rf.me, args.LeaderId)
 					rf.lastTickTime = time.Now()
 					rf.rfstatus = follower
 				}
 			} else {
-				Debug(dError, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
+				Debug(dError, "S%d receive a invalid heartbeat from leader %d,my_term: %d,args_term: %d", rf.me, args.LeaderId, rf.currentTerm, args.CurrentTerm)
 			}
 		} else {
 			if args.CurrentTerm > rf.currentTerm {
 				rf.lastTickTime = time.Now()
-				Debug(dLog2, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
+				Debug(dLog2, "S%d receive a RPC,my_term: %d,args_term: %d", rf.me, args.LeaderId, args.CurrentTerm)
 				//rf.currentTerm = args.CurrentTerm
 				rf.UpdateTerm(args.CurrentTerm)
 				if rf.rfstatus != follower {
-					Debug(dWarn, "S%d receive a heartbeat from %d, become a Client", rf.me, args.LeaderId)
 					rf.lastTickTime = time.Now()
 					rf.rfstatus = follower
 				}
 			}
-			if rf.lastIndex[rf.me] != nil && rf.lastIndex[rf.me].PrevLogIndex == args.PrevLogIndex && rf.lastIndex[rf.me].LeaderCommit == args.LeaderCommit && rf.lastIndex[rf.me].LatestIndex >= args.LatestIndex {
-				Debug(dLog2, "s%d receive equal broadcastAppendLogs", rf.me)
-				reply.CurrentTerm = rf.currentTerm
-				reply.Success = true
-				reply.ApplyIndex = rf.logLength
+			if rf.lastIndex[rf.me] != nil && rf.lastIndex[rf.me].PrevLogItem == args.PrevLogItem && rf.lastIndex[rf.me].PrevLogIndex == args.PrevLogIndex && rf.lastIndex[rf.me].LeaderCommit == args.LeaderCommit && rf.lastIndex[rf.me].LatestIndex >= args.LatestIndex {
+				Debug(dLog2, "s%d receive out of date broadcastAppendLogs,PrevLogItem:%d PrevLogIndex:%d LatestIndex:%d", rf.me, args.PrevLogItem, args.PrevLogIndex, rf.lastIndex[rf.me].LatestIndex)
 				reply.IsOutOFdate = true
 				return
 			}
@@ -331,7 +325,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			reply.AppendType = AppendLog
 			reply.Id = rf.me
 			reply.CurrentTerm = rf.currentTerm
-			Debug(dClient, "S%d receive a AppendLog command from leader %d,PrevLogItem=%d PrevLogIndex=%d,size = %d", rf.me, args.LeaderId, args.PrevLogItem, args.PrevLogIndex, len(args.Entries))
+			Debug(dClient, "S%d receive a AppendLog command from leader %d,PrevLogItem=%d PrevLogIndex=%d,size=%d,leader's commitIndex=%d", rf.me, args.LeaderId, args.PrevLogItem, args.PrevLogIndex, len(args.Entries), args.LeaderCommit)
 			if args.CurrentTerm < rf.currentTerm {
 				reply.FailFirstIndex = -1
 				reply.Success = false
@@ -446,6 +440,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		// Your code here (2B).
 		rf.logs = append(rf.logs, &Log{LeaderTerm: rf.currentTerm, Command: command})
 		//rf.UpdateLogs(append(rf.logs, &Log{LeaderTerm: rf.currentTerm, Command: command}))
+		rf.UpdateLogs(rf.logs)
 		rf.logLength++
 		Debug(dLog, "S%d receive a command,index = %d, currentTerm = %d", rf.me, rf.logLength, rf.currentTerm)
 		rf.ApplyNumber[rf.logLength] = make(map[int]bool)
@@ -492,7 +487,7 @@ func (rf *Raft) broadcastAppendLogs() {
 			}
 			rf.mu.Unlock()
 		}
-		time.Sleep(time.Duration(100) * time.Millisecond)
+		time.Sleep(time.Duration(150) * time.Millisecond)
 	}
 }
 
@@ -526,10 +521,8 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 		if rf.rfstatus != leader {
 			return
 		}
-		if reply.CurrentTerm < rf.currentTerm {
+		if reply.CurrentTerm < rf.currentTerm || reply.IsOutOFdate {
 			Debug(dLeader, "S%d receive a out of date RPC", rf.me)
-		}
-		if reply.IsOutOFdate {
 			return
 		}
 		if reply.Success == false {
@@ -540,7 +533,6 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 				//rf.currentTerm = reply.CurrentTerm
 				return
 			}
-
 			if reply.FailFirstIndex != -1 {
 				rf.nextIndex[reply.Id] = reply.FailFirstIndex
 			} else {
@@ -562,7 +554,6 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 			rf.nextIndex[reply.Id] = reply.ApplyIndex + 1
 			rf.matchIndex[reply.Id] = reply.ApplyIndex
 			flag := false
-			rf.UpdateLogs(rf.logs)
 			for i := rf.commitIndex + 1; i <= rf.matchIndex[reply.Id]; i++ {
 				if rf.ApplyNumber[i] == nil {
 					rf.ApplyNumber[i] = make(map[int]bool)
