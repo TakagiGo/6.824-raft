@@ -113,7 +113,6 @@ type Raft struct {
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
-
 	var term int
 	var isleader bool
 	// Your code here (2A).
@@ -205,6 +204,7 @@ type AppendEntriesReply struct {
 	ApplyIndex     int
 	FailFirstIndex int
 	IsOutOFdate    bool
+	LastLogItem    int
 }
 
 // example RequestVote RPC arguments structure.
@@ -308,6 +308,17 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				Debug(dError, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
 			}
 		} else {
+			if args.CurrentTerm > rf.currentTerm {
+				rf.lastTickTime = time.Now()
+				Debug(dLog2, "S%d receive a heartbeat from leader %d,term is %d", rf.me, args.LeaderId, args.CurrentTerm)
+				//rf.currentTerm = args.CurrentTerm
+				rf.UpdateTerm(args.CurrentTerm)
+				if rf.rfstatus != follower {
+					Debug(dWarn, "S%d receive a heartbeat from %d, become a Client", rf.me, args.LeaderId)
+					rf.lastTickTime = time.Now()
+					rf.rfstatus = follower
+				}
+			}
 			if rf.lastIndex[rf.me] != nil && rf.lastIndex[rf.me].PrevLogIndex == args.PrevLogIndex && rf.lastIndex[rf.me].LeaderCommit == args.LeaderCommit && rf.lastIndex[rf.me].LatestIndex >= args.LatestIndex {
 				Debug(dLog2, "s%d receive equal broadcastAppendLogs", rf.me)
 				reply.CurrentTerm = rf.currentTerm
@@ -317,14 +328,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				return
 			}
 			reply.IsOutOFdate = false
-			rf.lastIndex[rf.me] = args
 			reply.AppendType = AppendLog
 			reply.Id = rf.me
-			Debug(dClient, "S%d receive a AppendLog command from leader %d,PrevLogItem=%d PrevLogIndex=%d,size =", rf.me, args.LeaderId, args.PrevLogItem, args.PrevLogIndex, len(args.Entries))
+			reply.CurrentTerm = rf.currentTerm
+			Debug(dClient, "S%d receive a AppendLog command from leader %d,PrevLogItem=%d PrevLogIndex=%d,size = %d", rf.me, args.LeaderId, args.PrevLogItem, args.PrevLogIndex, len(args.Entries))
 			if args.CurrentTerm < rf.currentTerm {
 				reply.FailFirstIndex = -1
-				reply.CurrentTerm = rf.currentTerm
 				reply.Success = false
+				reply.LastLogItem = rf.currentTerm
 				Debug(dClient, "S%d reject the AppendLog command because leader term is %d,local term is %d",
 					rf.me, args.CurrentTerm, rf.currentTerm)
 				Debug(dClient, "111reply.FailFirstIndex is %d", reply.FailFirstIndex)
@@ -334,7 +345,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				Debug(dClient, "S%d reject the AppendLog command because leader PrevLogIndex %d, rf.loglength %d", rf.me, args.PrevLogIndex, rf.logLength)
 				Debug(dClient, "222reply.FailFirstIndex is %d", reply.FailFirstIndex)
 			} else if rf.logs[args.PrevLogIndex].LeaderTerm != args.PrevLogItem {
-				reply.CurrentTerm = rf.logs[args.PrevLogIndex].LeaderTerm
+				reply.LastLogItem = rf.logs[args.PrevLogIndex].LeaderTerm
 				reply.Success = false
 				reply.FailFirstIndex = -1
 				flag := false
@@ -353,6 +364,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 					rf.me, args.PrevLogIndex, args.PrevLogItem, rf.logLength, rf.logs[args.PrevLogIndex].LeaderTerm)
 				Debug(dClient, "333reply.FailFirstIndex is %d", reply.FailFirstIndex)
 			} else {
+				rf.lastIndex[rf.me] = args
 				rf.logs = rf.logs[0 : args.PrevLogIndex+1]
 				rf.logs = append(rf.logs, args.Entries...)
 				rf.UpdateLogs(rf.logs)
@@ -361,7 +373,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				}
 				rf.logLength = len(rf.logs) - 1
 				Debug(dClient, "S%d agree the AppendLog,current log length is %d", rf.me, rf.logLength)
-				reply.CurrentTerm = rf.currentTerm
+				reply.LastLogItem = rf.currentTerm
 				reply.Success = true
 				reply.ApplyIndex = rf.logLength
 				if args.LeaderCommit > rf.commitIndex {
@@ -494,9 +506,11 @@ func (rf *Raft) broadcastAppendLogs() {
 // confusing debug output. any goroutine with a long-running loop
 // should call killed() to check whether it should stop.
 func (rf *Raft) Kill() {
+	rf.mu.Lock()
 	atomic.StoreInt32(&rf.dead, 1)
 	rf.close()
 	Debug(dError, "S%d is be killed", rf.me)
+	rf.mu.Unlock()
 	// Your code here, if desired.
 }
 
@@ -512,6 +526,12 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 		if rf.rfstatus != leader {
 			return
 		}
+		if reply.CurrentTerm < rf.currentTerm {
+			Debug(dLeader, "S%d receive a out of date RPC", rf.me)
+		}
+		if reply.IsOutOFdate {
+			return
+		}
 		if reply.Success == false {
 			if reply.CurrentTerm > rf.currentTerm {
 				Debug(dLeader, "S%d leader term %d is out of date,newer term is %d", rf.me, rf.currentTerm, reply.CurrentTerm)
@@ -520,12 +540,13 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 				//rf.currentTerm = reply.CurrentTerm
 				return
 			}
+
 			if reply.FailFirstIndex != -1 {
 				rf.nextIndex[reply.Id] = reply.FailFirstIndex
 			} else {
 				flag := false
 				for index := 1; index < rf.logLength; index++ {
-					if rf.logs[index].LeaderTerm == reply.CurrentTerm {
+					if rf.logs[index].LeaderTerm == reply.LastLogItem {
 						rf.nextIndex[reply.Id] = index + 1
 						flag = true
 						break
@@ -538,9 +559,6 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 			Debug(dLeader, "S%d leader rf.nextIndex[%d]. nextIndex = %d", rf.me, reply.Id, rf.nextIndex[reply.Id])
 		} else {
 			Debug(dLeader, "S%d leader term %d receive a AppendLogReply from %d Index= %d", rf.me, rf.currentTerm, reply.Id, reply.ApplyIndex)
-			if reply.IsOutOFdate {
-				return
-			}
 			rf.nextIndex[reply.Id] = reply.ApplyIndex + 1
 			rf.matchIndex[reply.Id] = reply.ApplyIndex
 			flag := false
@@ -661,6 +679,7 @@ func (rf *Raft) startVote(reply *RequestVoteReply) {
 			rf.nextIndex[i] = rf.logLength + 1
 			rf.matchIndex[i] = 0
 		}
+		rf.ApplyNumber = make([]map[int]bool, 100000)
 		rf.mu.Unlock()
 		Debug(dInfo, "S%d become a leader,it has win the %d vote", rf.me, rf.VoteCollection)
 		go rf.broadcastAppendLogs()
@@ -728,8 +747,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// log
 	rf.nextIndex = make([]int, rf.peersNumber)
 	rf.matchIndex = make([]int, rf.peersNumber)
-	rf.matchIndex = make([]int, rf.peersNumber)
-	rf.ApplyNumber = make([]map[int]bool, 100000)
 	rf.lastIndex = make([]*AppendEntriesArgs, rf.peersNumber)
 
 	// start ticker goroutine to start elections
