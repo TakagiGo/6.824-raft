@@ -547,25 +547,30 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 			rf.nextIndex[reply.Id] = reply.ApplyIndex + 1
 			rf.matchIndex[reply.Id] = reply.ApplyIndex
 			flag := false
-			for i := rf.commitIndex + 1; i <= rf.matchIndex[reply.Id]; i++ {
-				if rf.ApplyNumber[i] == nil {
-					rf.ApplyNumber[i] = make(map[int]bool)
-					rf.ApplyNumber[i][rf.me] = true
+			to := rf.commitIndex
+			for i := rf.LastlogIndex; i > rf.commitIndex && rf.logs[i].LeaderTerm == rf.currentTerm; i-- {
+				argeementNumber := 1
+				for j := 0; j < rf.peersNumber; j++ {
+					if j == rf.me {
+						continue
+					}
+					if rf.matchIndex[j] >= i {
+						argeementNumber++
+					}
 				}
-				rf.ApplyNumber[i][reply.Id] = true
-				if rf.logs[i].LeaderTerm == rf.currentTerm && len(rf.ApplyNumber[i]) > rf.peersNumber/2 {
+				if argeementNumber > rf.peersNumber/2 {
+					to = i
 					flag = true
+					break
 				}
 				//Debug(dTrace, "S%d leader term %d receive a AppendLogReply from %d Index= %d", rf.me, rf.currentTerm, reply.Id, reply.ApplyIndex)
 			}
 			if flag {
-				for i := rf.commitIndex + 1; i <= rf.matchIndex[reply.Id]; i++ {
-					if len(rf.ApplyNumber[i]) > rf.peersNumber/2 {
-						rf.commitIndex++
-						rf.AppendTime = time.Now()
-						Debug(dCommit, "S%d commit the log: Index=%d,current number is %d", rf.me, rf.commitIndex, len(rf.ApplyNumber[i]))
-						rf.applyCh <- ApplyMsg{CommandValid: true, CommandIndex: rf.commitIndex, Command: rf.logs[rf.commitIndex].Command}
-					}
+				for i := rf.commitIndex + 1; i <= to; i++ {
+					rf.commitIndex++
+					rf.AppendTime = time.Now()
+					Debug(dCommit, "S%d commit the log: Index=%d,current number is %d", rf.me, rf.commitIndex, len(rf.ApplyNumber[i]))
+					rf.applyCh <- ApplyMsg{CommandValid: true, CommandIndex: rf.commitIndex, Command: rf.logs[rf.commitIndex].Command}
 					//Debug(dTrace, "S%d leader term %d receive a AppendLogReply from %d Index= %d", rf.me, rf.currentTerm, reply.Id, reply.ApplyIndex)
 				}
 			}
