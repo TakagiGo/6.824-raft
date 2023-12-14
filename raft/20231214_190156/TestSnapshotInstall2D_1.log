@@ -1,0 +1,894 @@
+000000 INFO S0 start to service
+000000 LOG1 s0 readPersist persist length is 0
+000000 LOG1 333 readfailed
+000000 TIMR S0 start the voteTimer
+000000 INFO S1 start to service
+000000 LOG1 s1 readPersist persist length is 0
+000000 LOG1 333 readfailed
+000000 INFO S2 start to service
+000000 LOG1 s2 readPersist persist length is 0
+000000 LOG1 333 readfailed
+000000 TIMR S1 start the voteTimer
+Test (2D): install snapshots (disconnect) ...
+000000 TIMR S2 start the voteTimer
+003293 TIMR S2 start the voteTimer
+003438 TIMR S0 start the voteTimer
+003439 TIMR S0 voteTimer Time out
+003440 VOTE S0 broadcast the vote &{1 0 0 0}
+003441 INFO S2 receive a Vote Request from 0 LogIndex leader=0  me=0 LeaderTerm leader=0  me=0
+003441 VOTE S0 receive a voteGrant from 0,now VoteNumber is 1
+003442 VOTE S0 receive a voteGrant from 2,now VoteNumber is 2
+003442 INFO S0 become a leader,it has win the 2 vote
+003442 LOG2 S0 Broadcast the Heart Beat
+003442 INFO S1 receive a Vote Request from 0 LogIndex leader=0  me=0 LeaderTerm leader=0  me=0
+003442 LEAD S0 send to 1 PrevLogIndex=0
+003443 LEAD S0 term1 send AppendEntries to 1: PrevLogIndex=0, PrevLogItem=0, entriessize=0 
+003443 LEAD S0 send to 2 PrevLogIndex=0
+003443 LEAD S0 term1 send AppendEntries to 2: PrevLogIndex=0, PrevLogItem=0, entriessize=0 
+003443 LOG2 S2 receive a heartbeat from leader 0,term is 1
+003444 LOG2 S1 receive a heartbeat from leader 0,term is 1
+003444 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=0 PrevLogIndex=0,size=0,leader's commitIndex=0
+003444 CLNT S2 rf.logs length is 1
+003444 CLNT S2 rf.Entries length is 0
+003444 CLNT S2 agree the AppendLog,current log length is 0
+003444 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=0 PrevLogIndex=0,size=0,leader's commitIndex=0
+003444 CLNT S1 rf.logs length is 1
+003444 CLNT S1 rf.Entries length is 0
+003444 CLNT S1 agree the AppendLog,current log length is 0
+003444 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 1 Index= 0
+003444 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 2 Index= 0
+003531 LOG1 S0 receive a command,index = 1, currentTerm = 1
+003553 TIMR S1 start the voteTimer
+004449 LEAD S0 send to 1 PrevLogIndex=0
+004450 LEAD S0 term1 send AppendEntries to 1: PrevLogIndex=0, PrevLogItem=0, entriessize=1 
+004450 LEAD S0 send to 2 PrevLogIndex=0
+004450 LOG2 S0 Broadcast the Heart Beat
+004450 LEAD S0 term1 send AppendEntries to 2: PrevLogIndex=0, PrevLogItem=0, entriessize=1 
+004451 LOG2 S1 receive a heartbeat from leader 0,term is 1
+004451 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=0 PrevLogIndex=0,size=1,leader's commitIndex=0
+004451 LOG2 S2 receive a heartbeat from leader 0,term is 1
+004451 CLNT S1 rf.logs length is 1
+004452 CLNT S1 rf.Entries length is 1
+004452 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=0 PrevLogIndex=0,size=1,leader's commitIndex=0
+004452 CLNT S2 rf.logs length is 1
+004452 CLNT S2 rf.Entries length is 1
+004452 CLNT S1 append log 4802348356416171065 Index=1 from leader 0
+004452 CLNT S1 agree the AppendLog,current log length is 1
+004452 CLNT S2 append log 4802348356416171065 Index=1 from leader 0
+004452 CLNT S2 agree the AppendLog,current log length is 1
+004453 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 2 Index= 1
+004453 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 1 Index= 1
+004574 CMIT S0 commit the log 4802348356416171065: Index=1
+005460 LEAD S0 send to 1 PrevLogIndex=1
+005460 LEAD S0 term1 send AppendEntries to 1: PrevLogIndex=1, PrevLogItem=1, entriessize=0 
+005460 LEAD S0 send to 2 PrevLogIndex=1
+005460 LEAD S0 term1 send AppendEntries to 2: PrevLogIndex=1, PrevLogItem=1, entriessize=0 
+005460 LOG2 S0 Broadcast the Heart Beat
+005461 LOG2 S2 receive a heartbeat from leader 0,term is 1
+005461 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=1,size=0,leader's commitIndex=1
+005461 CLNT S1 rf.logs length is 2
+005461 CLNT S1 rf.Entries length is 0
+005461 CLNT S1 agree the AppendLog,current log length is 1
+005461 LOG2 S1 receive a heartbeat from leader 0,term is 1
+005461 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 1 Index= 1
+005461 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=1,size=0,leader's commitIndex=1
+005461 CLNT S2 rf.logs length is 2
+005461 CLNT S2 rf.Entries length is 0
+005462 CLNT S2 agree the AppendLog,current log length is 1
+005462 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 2 Index= 1
+005493 CMIT S2 commit the log 4802348356416171065: Index=1
+005493 CMIT S1 commit the log 4802348356416171065: Index=1
+006464 LOG2 S0 Broadcast the Heart Beat
+006465 LEAD S0 send to 1 PrevLogIndex=1
+006465 LOG2 s0 send equal broadcastAppendLogs to 1
+006465 LEAD S0 send to 2 PrevLogIndex=1
+006465 LOG2 s0 send equal broadcastAppendLogs to 2
+006465 LOG2 S2 receive a heartbeat from leader 0,term is 1
+006465 LOG2 S1 receive a heartbeat from leader 0,term is 1
+006687 TIMR S0 start the voteTimer
+007315 TIMR S2 start the voteTimer
+007469 LOG2 S0 Broadcast the Heart Beat
+007470 LOG2 S2 receive a heartbeat from leader 0,term is 1
+007470 LEAD S0 send to 1 PrevLogIndex=1
+007470 LOG2 s0 send equal broadcastAppendLogs to 1
+007470 LEAD S0 send to 2 PrevLogIndex=1
+007470 LOG2 s0 send equal broadcastAppendLogs to 2
+007470 LOG2 S1 receive a heartbeat from leader 0,term is 1
+007877 TIMR S1 start the voteTimer
+008476 LEAD S0 send to 1 PrevLogIndex=1
+008477 LOG2 s0 send equal broadcastAppendLogs to 1
+008477 LEAD S0 send to 2 PrevLogIndex=1
+008477 LOG2 s0 send equal broadcastAppendLogs to 2
+008477 LOG2 S0 Broadcast the Heart Beat
+008478 LOG2 S2 receive a heartbeat from leader 0,term is 1
+008479 LOG2 S1 receive a heartbeat from leader 0,term is 1
+009427 TIMR S0 start the voteTimer
+009480 LEAD S0 send to 1 PrevLogIndex=1
+009480 LOG2 s0 send equal broadcastAppendLogs to 1
+009480 LEAD S0 send to 2 PrevLogIndex=1
+009481 LOG2 s0 send equal broadcastAppendLogs to 2
+009481 LOG2 S0 Broadcast the Heart Beat
+009482 LOG2 S2 receive a heartbeat from leader 0,term is 1
+009482 LOG2 S1 receive a heartbeat from leader 0,term is 1
+010490 LEAD S0 send to 1 PrevLogIndex=1
+010491 LOG2 s0 send equal broadcastAppendLogs to 1
+010491 LEAD S0 send to 2 PrevLogIndex=1
+010491 LOG2 s0 send equal broadcastAppendLogs to 2
+010491 LOG2 S0 Broadcast the Heart Beat
+010492 LOG2 S2 receive a heartbeat from leader 0,term is 1
+010493 LOG2 S1 receive a heartbeat from leader 0,term is 1
+010966 LOG1 S0 receive a command,index = 2, currentTerm = 1
+011351 TIMR S2 start the voteTimer
+011496 LEAD S0 send to 1 PrevLogIndex=1
+011497 LEAD S0 term1 send AppendEntries to 1: PrevLogIndex=1, PrevLogItem=1, entriessize=1 
+011497 LEAD S0 send to 2 PrevLogIndex=1
+011497 LEAD S0 term1 send AppendEntries to 2: PrevLogIndex=1, PrevLogItem=1, entriessize=1 
+011497 LOG2 S0 Broadcast the Heart Beat
+011498 LOG2 S2 receive a heartbeat from leader 0,term is 1
+011499 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=1,size=1,leader's commitIndex=1
+011499 CLNT S2 rf.logs length is 2
+011499 CLNT S2 rf.Entries length is 1
+011499 CLNT S2 append log 6320890510897666346 Index=2 from leader 0
+011499 CLNT S2 agree the AppendLog,current log length is 2
+011500 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 2 Index= 2
+011579 CMIT S0 commit the log 6320890510897666346: Index=2
+012178 TIMR S1 start the voteTimer
+012507 LEAD S0 send to 1 PrevLogIndex=1
+012507 LEAD S0 term1 send AppendEntries to 1: PrevLogIndex=1, PrevLogItem=1, entriessize=1 
+012507 LEAD S0 send to 2 PrevLogIndex=2
+012507 LEAD S0 term1 send AppendEntries to 2: PrevLogIndex=2, PrevLogItem=1, entriessize=0 
+012507 LOG2 S0 Broadcast the Heart Beat
+012508 LOG2 S2 receive a heartbeat from leader 0,term is 1
+012509 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=2,size=0,leader's commitIndex=2
+012509 CLNT S2 rf.logs length is 3
+012509 CLNT S2 rf.Entries length is 0
+012509 CLNT S2 agree the AppendLog,current log length is 2
+012510 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 2 Index= 2
+012803 CMIT S2 commit the log 6320890510897666346: Index=2
+012803 LOG1 S0 receive a command,index = 3, currentTerm = 1
+012804 LOG1 S0 receive a command,index = 4, currentTerm = 1
+012804 LOG1 S0 receive a command,index = 5, currentTerm = 1
+012804 LOG1 S0 receive a command,index = 6, currentTerm = 1
+012804 LOG1 S0 receive a command,index = 7, currentTerm = 1
+012804 LOG1 S0 receive a command,index = 8, currentTerm = 1
+012925 TIMR S0 start the voteTimer
+013517 LOG2 S0 Broadcast the Heart Beat
+013518 LEAD S0 send to 1 PrevLogIndex=1
+013518 LEAD S0 term1 send AppendEntries to 1: PrevLogIndex=1, PrevLogItem=1, entriessize=7 
+013518 LEAD S0 send to 2 PrevLogIndex=2
+013518 LEAD S0 term1 send AppendEntries to 2: PrevLogIndex=2, PrevLogItem=1, entriessize=6 
+013519 LOG2 S2 receive a heartbeat from leader 0,term is 1
+013519 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=2,size=6,leader's commitIndex=2
+013519 CLNT S2 rf.logs length is 3
+013519 CLNT S2 rf.Entries length is 6
+013519 CLNT S2 append log 6044052482630821714 Index=3 from leader 0
+013519 CLNT S2 append log 8411120250162370381 Index=4 from leader 0
+013519 CLNT S2 append log 4031124302346209223 Index=5 from leader 0
+013519 CLNT S2 append log 6084691538197496577 Index=6 from leader 0
+013519 CLNT S2 append log 8965163377213081850 Index=7 from leader 0
+013519 CLNT S2 append log 415683936130815852 Index=8 from leader 0
+013519 CLNT S2 agree the AppendLog,current log length is 8
+013520 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 2 Index= 8
+013723 CMIT S0 commit the log 6044052482630821714: Index=3
+013723 CMIT S0 commit the log 8411120250162370381: Index=4
+013723 CMIT S0 commit the log 4031124302346209223: Index=5
+013723 CMIT S0 commit the log 6084691538197496577: Index=6
+013723 CMIT S0 commit the log 8965163377213081850: Index=7
+013723 CMIT S0 commit the log 415683936130815852: Index=8
+014520 LEAD S0 send to 1 PrevLogIndex=1
+014520 LEAD S0 term1 send AppendEntries to 1: PrevLogIndex=1, PrevLogItem=1, entriessize=7 
+014521 LEAD S0 send to 2 PrevLogIndex=8
+014521 LOG2 S0 Broadcast the Heart Beat
+014521 LEAD S0 term1 send AppendEntries to 2: PrevLogIndex=8, PrevLogItem=1, entriessize=0 
+014522 LOG2 S2 receive a heartbeat from leader 0,term is 1
+014522 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=8,size=0,leader's commitIndex=8
+014522 CLNT S2 rf.logs length is 9
+014522 CLNT S2 rf.Entries length is 0
+014522 CLNT S2 agree the AppendLog,current log length is 8
+014523 LEAD S0 leader term 1 receive a AppendLogReply:term1 from 2 Index= 8
+014643 CMIT S2 commit the log 6044052482630821714: Index=3
+014643 CMIT S2 commit the log 8411120250162370381: Index=4
+014644 CMIT S2 commit the log 4031124302346209223: Index=5
+014644 CMIT S2 commit the log 6084691538197496577: Index=6
+014644 CMIT S2 commit the log 8965163377213081850: Index=7
+014644 CMIT S2 commit the log 415683936130815852: Index=8
+014845 LOG1 S0 receive a command,index = 9, currentTerm = 1
+015202 TIMR S1 start the voteTimer
+015203 TIMR S1 voteTimer Time out
+015203 VOTE S1 broadcast the vote &{2 1 1 1}
+015203 VOTE S1 receive a voteGrant from 1,now VoteNumber is 1
+015204 INFO S2 receive a Vote Request from 1,but LogIndex leader=1 < me=8 || LeaderTerm leader=1 < me=1
+015205 INFO S0 receive a Vote Request from 1,but LogIndex leader=1 < me=9 || LeaderTerm leader=1 < me=1
+015205 INFO S0 receive a Vote Request from 1, term is out of date
+015326 TIMR S2 start the voteTimer
+016691 TIMR S0 start the voteTimer
+017878 TIMR S2 start the voteTimer
+018854 TIMR S0 start the voteTimer
+018855 TIMR S0 voteTimer Time out
+018855 VOTE S0 broadcast the vote &{3 0 9 1}
+018855 VOTE S0 receive a voteGrant from 0,now VoteNumber is 1
+018857 INFO S2 receive a Vote Request from 0 LogIndex leader=9  me=8 LeaderTerm leader=1  me=1
+018857 INFO S1 receive a Vote Request from 0 LogIndex leader=9  me=1 LeaderTerm leader=1  me=1
+018857 INFO S1 receive a Vote Request from 0, term is out of date
+018858 VOTE S0 receive a voteGrant from 1,now VoteNumber is 2
+018858 INFO S0 become a leader,it has win the 2 vote
+018858 LOG2 S0 Broadcast the Heart Beat
+018858 LEAD S0 send to 1 PrevLogIndex=9
+018858 LEAD S0 term3 send AppendEntries to 1: PrevLogIndex=9, PrevLogItem=1, entriessize=0 
+018859 LEAD S0 send to 2 PrevLogIndex=9
+018859 LEAD S0 term3 send AppendEntries to 2: PrevLogIndex=9, PrevLogItem=1, entriessize=0 
+018860 LOG2 S2 receive a heartbeat from leader 0,term is 3
+018860 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=9,size=0,leader's commitIndex=8
+018860 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=9,size=0,leader's commitIndex=8
+018860 CLNT S2 reject the AppendLog command because leader PrevLogIndex 9, rf.LastlogIndex 8
+018860 CLNT 222reply.FailFirstIndex is 9
+018860 CLNT S1 reject the AppendLog command because leader PrevLogIndex 9, rf.LastlogIndex 1
+018861 CLNT 222reply.FailFirstIndex is 2
+018861 LEAD S0 leader rf.nextIndex[2]. nextIndex = 9
+018861 LOG2 S1 receive a heartbeat from leader 0,term is 3
+018861 LEAD S0 leader rf.nextIndex[1]. nextIndex = 2
+019495 TIMR S1 start the voteTimer
+019864 LEAD S0 send to 1 PrevLogIndex=1
+019864 LEAD S0 term3 send AppendEntries to 1: PrevLogIndex=1, PrevLogItem=1, entriessize=8 
+019864 LEAD S0 send to 2 PrevLogIndex=8
+019864 LEAD S0 term3 send AppendEntries to 2: PrevLogIndex=8, PrevLogItem=1, entriessize=1 
+019864 LOG2 S0 Broadcast the Heart Beat
+019865 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=8,size=1,leader's commitIndex=8
+019865 CLNT S2 rf.logs length is 9
+019865 CLNT S2 rf.Entries length is 1
+019865 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=1,size=8,leader's commitIndex=8
+019865 CLNT S1 rf.logs length is 2
+019865 CLNT S1 rf.Entries length is 8
+019865 CLNT S2 append log 6620705247382582059 Index=9 from leader 0
+019865 CLNT S2 agree the AppendLog,current log length is 9
+019865 CLNT S1 append log 6320890510897666346 Index=2 from leader 0
+019865 CLNT S1 append log 6044052482630821714 Index=3 from leader 0
+019865 CLNT S1 append log 8411120250162370381 Index=4 from leader 0
+019865 CLNT S1 append log 4031124302346209223 Index=5 from leader 0
+019865 CLNT S1 append log 6084691538197496577 Index=6 from leader 0
+019865 CLNT S1 append log 8965163377213081850 Index=7 from leader 0
+019865 CLNT S1 append log 415683936130815852 Index=8 from leader 0
+019865 CLNT S1 append log 6620705247382582059 Index=9 from leader 0
+019865 CLNT S1 agree the AppendLog,current log length is 9
+019865 LOG2 S2 receive a heartbeat from leader 0,term is 3
+019866 LEAD S0 leader term 3 receive a AppendLogReply:term3 from 2 Index= 9
+019866 LEAD S0 leader term 3 receive a AppendLogReply:term3 from 1 Index= 9
+019866 LOG2 S1 receive a heartbeat from leader 0,term is 3
+020160 CMIT S1 commit the log 6320890510897666346: Index=2
+020160 CMIT S1 commit the log 6044052482630821714: Index=3
+020160 CMIT S1 commit the log 8411120250162370381: Index=4
+020160 CMIT S1 commit the log 4031124302346209223: Index=5
+020160 CMIT S1 commit the log 6084691538197496577: Index=6
+020160 CMIT S1 commit the log 8965163377213081850: Index=7
+020160 CMIT S1 commit the log 415683936130815852: Index=8
+020872 LOG2 S0 Broadcast the Heart Beat
+020873 LEAD S0 send to 1 PrevLogIndex=9
+020873 LEAD S0 term3 send AppendEntries to 1: PrevLogIndex=9, PrevLogItem=1, entriessize=0 
+020873 LEAD S0 send to 2 PrevLogIndex=9
+020873 LEAD S0 term3 send AppendEntries to 2: PrevLogIndex=9, PrevLogItem=1, entriessize=0 
+020873 LOG2 S1 receive a heartbeat from leader 0,term is 3
+020873 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=9,size=0,leader's commitIndex=8
+020873 CLNT S2 rf.logs length is 10
+020873 CLNT S2 rf.Entries length is 0
+020874 CLNT S2 agree the AppendLog,current log length is 9
+020874 LOG2 S2 receive a heartbeat from leader 0,term is 3
+020874 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=9,size=0,leader's commitIndex=8
+020874 CLNT S1 rf.logs length is 10
+020874 CLNT S1 rf.Entries length is 0
+020874 CLNT S1 agree the AppendLog,current log length is 9
+020874 LEAD S0 leader term 3 receive a AppendLogReply:term3 from 2 Index= 9
+020875 LEAD S0 leader term 3 receive a AppendLogReply:term3 from 1 Index= 9
+021068 ERRO S0 send AppendEntries to 1 failed
+021729 TIMR S2 start the voteTimer
+021873 LOG2 S0 Broadcast the Heart Beat
+021873 LEAD S0 send to 1 PrevLogIndex=9
+021873 LEAD S0 term3 send AppendEntries to 1: PrevLogIndex=9, PrevLogItem=1, entriessize=0 
+021873 LEAD S0 send to 2 PrevLogIndex=9
+021873 LOG2 s0 send equal broadcastAppendLogs to 2
+021874 LOG2 s1 receive out of date broadcastAppendLogs,PrevLogItem:1 PrevLogIndex:9 LatestIndex:9
+021875 LEAD S0 receive a out of date RPC
+021875 LOG2 S1 receive a heartbeat from leader 0,term is 3
+021875 LOG2 S2 receive a heartbeat from leader 0,term is 3
+022300 TIMR S1 start the voteTimer
+022476 TIMR S0 start the voteTimer
+022882 LEAD S0 send to 1 PrevLogIndex=9
+022883 LOG2 s0 send equal broadcastAppendLogs to 1
+022883 LEAD S0 send to 2 PrevLogIndex=9
+022883 LOG2 s0 send equal broadcastAppendLogs to 2
+022883 LOG2 S0 Broadcast the Heart Beat
+022884 LOG2 S2 receive a heartbeat from leader 0,term is 3
+022884 LOG2 S1 receive a heartbeat from leader 0,term is 3
+023886 LOG2 S0 Broadcast the Heart Beat
+023887 LEAD S0 send to 1 PrevLogIndex=9
+023887 LOG2 s0 send equal broadcastAppendLogs to 1
+023887 LEAD S0 send to 2 PrevLogIndex=9
+023887 LOG2 s0 send equal broadcastAppendLogs to 2
+023888 LOG2 S1 receive a heartbeat from leader 0,term is 3
+023888 LOG2 S2 receive a heartbeat from leader 0,term is 3
+024835 TIMR S1 start the voteTimer
+024889 LOG2 S0 Broadcast the Heart Beat
+024890 LEAD S0 send to 1 PrevLogIndex=9
+024890 LOG2 s0 send equal broadcastAppendLogs to 1
+024890 LEAD S0 send to 2 PrevLogIndex=9
+024890 LOG2 s0 send equal broadcastAppendLogs to 2
+024891 LOG2 S2 receive a heartbeat from leader 0,term is 3
+024891 LOG2 S1 receive a heartbeat from leader 0,term is 3
+025897 LEAD S0 send to 1 PrevLogIndex=9
+025897 LOG2 s0 send equal broadcastAppendLogs to 1
+025897 LEAD S0 send to 2 PrevLogIndex=9
+025897 LOG2 s0 send equal broadcastAppendLogs to 2
+025898 LOG2 S0 Broadcast the Heart Beat
+025899 LOG2 S2 receive a heartbeat from leader 0,term is 3
+025899 LOG2 S1 receive a heartbeat from leader 0,term is 3
+026035 TIMR S2 start the voteTimer
+026590 TIMR S0 start the voteTimer
+026907 LEAD S0 send to 1 PrevLogIndex=9
+026907 LOG2 s0 send equal broadcastAppendLogs to 1
+026907 LEAD S0 send to 2 PrevLogIndex=9
+026907 LOG2 s0 send equal broadcastAppendLogs to 2
+026908 LOG2 S0 Broadcast the Heart Beat
+026910 LOG2 S1 receive a heartbeat from leader 0,term is 3
+026910 LOG2 S2 receive a heartbeat from leader 0,term is 3
+027912 LOG2 S0 Broadcast the Heart Beat
+027913 LEAD S0 send to 1 PrevLogIndex=9
+027913 LOG2 S2 receive a heartbeat from leader 0,term is 3
+027913 LOG2 s0 send equal broadcastAppendLogs to 1
+027914 LEAD S0 send to 2 PrevLogIndex=9
+027914 LOG2 s0 send equal broadcastAppendLogs to 2
+027914 LOG2 S1 receive a heartbeat from leader 0,term is 3
+028854 TIMR S1 start the voteTimer
+028918 LEAD S0 send to 1 PrevLogIndex=9
+028918 LOG2 s0 send equal broadcastAppendLogs to 1
+028918 LEAD S0 send to 2 PrevLogIndex=9
+028918 LOG2 s0 send equal broadcastAppendLogs to 2
+028919 LOG2 S0 Broadcast the Heart Beat
+028921 LOG2 S2 receive a heartbeat from leader 0,term is 3
+028921 LOG2 S1 receive a heartbeat from leader 0,term is 3
+029677 TIMR S2 start the voteTimer
+029922 LEAD S0 send to 1 PrevLogIndex=9
+029922 LOG2 s0 send equal broadcastAppendLogs to 1
+029922 LEAD S0 send to 2 PrevLogIndex=9
+029922 LOG2 s0 send equal broadcastAppendLogs to 2
+029924 LOG2 S0 Broadcast the Heart Beat
+029926 LOG2 S2 receive a heartbeat from leader 0,term is 3
+029927 LOG2 S1 receive a heartbeat from leader 0,term is 3
+030113 TIMR S0 start the voteTimer
+030821 TIMR S1 start the voteTimer
+030926 LOG2 S0 Broadcast the Heart Beat
+030926 LEAD S0 send to 1 PrevLogIndex=9
+030926 LOG2 s0 send equal broadcastAppendLogs to 1
+030926 LEAD S0 send to 2 PrevLogIndex=9
+030926 LOG2 s0 send equal broadcastAppendLogs to 2
+030927 LOG2 S1 receive a heartbeat from leader 0,term is 3
+030927 LOG2 S2 receive a heartbeat from leader 0,term is 3
+031859 TIMR S2 start the voteTimer
+031930 LOG2 S0 Broadcast the Heart Beat
+031931 LEAD S0 send to 1 PrevLogIndex=9
+031932 LOG2 s0 send equal broadcastAppendLogs to 1
+031932 LEAD S0 send to 2 PrevLogIndex=9
+031932 LOG2 s0 send equal broadcastAppendLogs to 2
+031932 LOG2 S2 receive a heartbeat from leader 0,term is 3
+031933 LOG2 S1 receive a heartbeat from leader 0,term is 3
+032940 LEAD S0 send to 1 PrevLogIndex=9
+032941 LOG2 s0 send equal broadcastAppendLogs to 1
+032941 LEAD S0 send to 2 PrevLogIndex=9
+032941 LOG2 s0 send equal broadcastAppendLogs to 2
+032941 LOG2 S0 Broadcast the Heart Beat
+032942 LOG2 S2 receive a heartbeat from leader 0,term is 3
+032942 LOG2 S1 receive a heartbeat from leader 0,term is 3
+033329 TIMR S0 start the voteTimer
+033941 LEAD S0 send to 1 PrevLogIndex=9
+033941 LOG2 s0 send equal broadcastAppendLogs to 1
+033941 LEAD S0 send to 2 PrevLogIndex=9
+033941 LOG2 s0 send equal broadcastAppendLogs to 2
+033941 LOG2 S0 Broadcast the Heart Beat
+033942 LOG2 S1 receive a heartbeat from leader 0,term is 3
+033943 LOG2 S2 receive a heartbeat from leader 0,term is 3
+034758 TIMR S1 start the voteTimer
+034883 LOG1 S0 receive a command,index = 10, currentTerm = 3
+034945 LEAD S0 send to 1 PrevLogIndex=9
+034945 LEAD S0 term3 send AppendEntries to 1: PrevLogIndex=9, PrevLogItem=1, entriessize=1 
+034945 LEAD S0 send to 2 PrevLogIndex=9
+034945 LEAD S0 term3 send AppendEntries to 2: PrevLogIndex=9, PrevLogItem=1, entriessize=1 
+034946 LOG2 S0 Broadcast the Heart Beat
+034946 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=9,size=1,leader's commitIndex=8
+034946 CLNT S2 rf.logs length is 10
+034946 CLNT S2 rf.Entries length is 1
+034946 CLNT S2 append log 6620705247382582059 Index=10 from leader 0
+034947 CLNT S2 agree the AppendLog,current log length is 10
+034947 LEAD S0 leader term 3 receive a AppendLogReply:term3 from 2 Index= 10
+034947 LOG2 S2 receive a heartbeat from leader 0,term is 3
+034947 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=1 PrevLogIndex=9,size=1,leader's commitIndex=8
+034948 CLNT S1 rf.logs length is 10
+034948 CLNT S1 rf.Entries length is 1
+034948 CLNT S1 append log 6620705247382582059 Index=10 from leader 0
+034948 CLNT S1 agree the AppendLog,current log length is 10
+034948 LOG2 S1 receive a heartbeat from leader 0,term is 3
+034948 LEAD S0 leader term 3 receive a AppendLogReply:term3 from 1 Index= 10
+035172 CMIT S0 commit the log 6620705247382582059: Index=9
+035172 CMIT S0 commit the log 6620705247382582059: Index=10
+035173 SNAP S0 receive a SnapshotCommand index=9
+035173 SNAP S0 update lastIncludedItem=1 lastIncludedIndex=9,length is 2
+035491 TIMR S2 start the voteTimer
+035953 LEAD S0 send to 1 PrevLogIndex=10
+035953 LEAD S0 term3 send AppendEntries to 1: PrevLogIndex=10, PrevLogItem=3, entriessize=0 
+035954 LEAD S0 send to 2 PrevLogIndex=10
+035954 LEAD S0 term3 send AppendEntries to 2: PrevLogIndex=10, PrevLogItem=3, entriessize=0 
+035954 LOG2 S0 Broadcast the Heart Beat
+035956 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=3 PrevLogIndex=10,size=0,leader's commitIndex=10
+035956 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=3 PrevLogIndex=10,size=0,leader's commitIndex=10
+035956 CLNT S2 rf.logs length is 11
+035956 CLNT S2 rf.Entries length is 0
+035956 CLNT S1 rf.logs length is 11
+035956 CLNT S1 rf.Entries length is 0
+035956 CLNT S1 agree the AppendLog,current log length is 10
+035956 CLNT S2 agree the AppendLog,current log length is 10
+035956 LOG2 S1 receive a heartbeat from leader 0,term is 3
+035957 LOG2 S2 receive a heartbeat from leader 0,term is 3
+035957 LEAD S0 leader term 3 receive a AppendLogReply:term3 from 1 Index= 10
+035957 LEAD S0 leader term 3 receive a AppendLogReply:term3 from 2 Index= 10
+036098 CMIT S2 commit the log 6620705247382582059: Index=9
+036099 CMIT S2 commit the log 6620705247382582059: Index=10
+036099 CMIT S1 commit the log 6620705247382582059: Index=9
+036099 SNAP S2 receive a SnapshotCommand index=9
+036099 SNAP S2 update lastIncludedItem=1 lastIncludedIndex=9,length is 2
+036099 SNAP S1 receive a SnapshotCommand index=9
+036099 CMIT S1 commit the log 6620705247382582059: Index=10
+036099 SNAP S1 update lastIncludedItem=1 lastIncludedIndex=9,length is 2
+036638 TIMR S1 start the voteTimer
+036963 LEAD S0 send to 1 PrevLogIndex=10
+036963 LOG2 s0 send equal broadcastAppendLogs to 1
+036963 LEAD S0 send to 2 PrevLogIndex=10
+036963 LOG2 s0 send equal broadcastAppendLogs to 2
+036963 LOG2 S0 Broadcast the Heart Beat
+036964 LOG2 S2 receive a heartbeat from leader 0,term is 3
+036966 LOG2 S1 receive a heartbeat from leader 0,term is 3
+037498 TIMR S0 start the voteTimer
+037974 LEAD S0 send to 1 PrevLogIndex=10
+037974 LOG2 s0 send equal broadcastAppendLogs to 1
+037974 LEAD S0 send to 2 PrevLogIndex=10
+037974 LOG2 S0 Broadcast the Heart Beat
+037974 LOG2 s0 send equal broadcastAppendLogs to 2
+037975 LOG2 S2 receive a heartbeat from leader 0,term is 3
+037976 LOG2 S1 receive a heartbeat from leader 0,term is 3
+038582 TIMR S2 start the voteTimer
+038975 LOG2 S0 Broadcast the Heart Beat
+038976 LEAD S0 send to 1 PrevLogIndex=10
+038976 LOG2 s0 send equal broadcastAppendLogs to 1
+038976 LEAD S0 send to 2 PrevLogIndex=10
+038976 LOG2 s0 send equal broadcastAppendLogs to 2
+038977 LOG2 S2 receive a heartbeat from leader 0,term is 3
+038977 LOG2 S1 receive a heartbeat from leader 0,term is 3
+039986 LEAD S0 send to 1 PrevLogIndex=10
+039986 LOG2 s0 send equal broadcastAppendLogs to 1
+039986 LEAD S0 send to 2 PrevLogIndex=10
+039986 LOG2 s0 send equal broadcastAppendLogs to 2
+039986 LOG2 S0 Broadcast the Heart Beat
+039988 LOG2 S2 receive a heartbeat from leader 0,term is 3
+039988 LOG2 S1 receive a heartbeat from leader 0,term is 3
+040502 TIMR S1 start the voteTimer
+040991 LOG2 S0 Broadcast the Heart Beat
+040992 LEAD S0 send to 1 PrevLogIndex=10
+040992 LOG2 s0 send equal broadcastAppendLogs to 1
+040992 LEAD S0 send to 2 PrevLogIndex=10
+040992 LOG2 s0 send equal broadcastAppendLogs to 2
+040992 LOG2 S1 receive a heartbeat from leader 0,term is 3
+040992 LOG2 S2 receive a heartbeat from leader 0,term is 3
+041924 TIMR S0 start the voteTimer
+041997 LEAD S0 send to 1 PrevLogIndex=10
+041997 LOG2 s0 send equal broadcastAppendLogs to 1
+041997 LEAD S0 send to 2 PrevLogIndex=10
+041997 LOG2 s0 send equal broadcastAppendLogs to 2
+041997 LOG2 S0 Broadcast the Heart Beat
+042080 TIMR S2 start the voteTimer
+042417 TIMR S1 start the voteTimer
+043008 LEAD S0 send to 1 PrevLogIndex=10
+043008 LOG2 s0 send equal broadcastAppendLogs to 1
+043008 LEAD S0 send to 2 PrevLogIndex=10
+043008 LOG2 s0 send equal broadcastAppendLogs to 2
+043008 LOG2 S0 Broadcast the Heart Beat
+043881 TIMR S2 start the voteTimer
+043893 ERRO S0 Brocast Heart Beat to 2 failed
+043967 TIMR S0 start the voteTimer
+044011 LOG2 S0 Broadcast the Heart Beat
+044011 LEAD S0 send to 1 PrevLogIndex=10
+044011 LOG2 s0 send equal broadcastAppendLogs to 1
+044011 LEAD S0 send to 2 PrevLogIndex=10
+044011 LOG2 s0 send equal broadcastAppendLogs to 2
+044998 TIMR S1 start the voteTimer
+044998 TIMR S1 voteTimer Time out
+044999 VOTE S1 broadcast the vote &{4 1 10 3}
+044999 VOTE S1 receive a voteGrant from 1,now VoteNumber is 1
+045000 INFO S2 receive a Vote Request from 1 LogIndex leader=10  me=10 LeaderTerm leader=3  me=3
+045000 VOTE S1 receive a voteGrant from 2,now VoteNumber is 2
+045000 INFO S1 become a leader,it has win the 2 vote
+045001 LOG2 S1 Broadcast the Heart Beat
+045001 LEAD S1 send to 0 PrevLogIndex=10
+045001 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=10, PrevLogItem=3, entriessize=0 
+045001 LEAD S1 send to 2 PrevLogIndex=10
+045001 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=10, PrevLogItem=3, entriessize=0 
+045002 LOG2 S2 receive a heartbeat from leader 1,term is 4
+045002 LOG2 s2 receive out of date broadcastAppendLogs,PrevLogItem:3 PrevLogIndex:10 LatestIndex:10
+045003 LEAD S1 receive a out of date RPC
+045021 LEAD S0 send to 1 PrevLogIndex=10
+045021 LOG2 s0 send equal broadcastAppendLogs to 1
+045021 LEAD S0 send to 2 PrevLogIndex=10
+045021 LOG2 s0 send equal broadcastAppendLogs to 2
+045021 LOG2 S0 Broadcast the Heart Beat
+045447 LOG1 S1 receive a command,index = 11, currentTerm = 4
+046008 LEAD S1 send to 0 PrevLogIndex=10
+046008 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=10, PrevLogItem=3, entriessize=1 
+046008 LEAD S1 send to 2 PrevLogIndex=10
+046008 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=10, PrevLogItem=3, entriessize=1 
+046008 LOG2 S1 Broadcast the Heart Beat
+046009 CLNT S2 receive a AppendLog command from leader 1,PrevLogItem=3 PrevLogIndex=10,size=1,leader's commitIndex=10
+046009 CLNT S2 rf.logs length is 2
+046009 CLNT S2 rf.Entries length is 1
+046009 CLNT S2 append log 1957175274542624093 Index=2 from leader 1
+046009 CLNT S2 agree the AppendLog,current log length is 11
+046010 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 2 Index= 11
+046010 LOG2 S2 receive a heartbeat from leader 1,term is 4
+046031 LEAD S0 send to 1 PrevLogIndex=10
+046031 LOG2 s0 send equal broadcastAppendLogs to 1
+046031 LEAD S0 send to 2 PrevLogIndex=10
+046031 LOG2 s0 send equal broadcastAppendLogs to 2
+046032 LOG2 S0 Broadcast the Heart Beat
+046136 CMIT S1 commit the log 1957175274542624093: Index=11
+047013 LEAD S1 send to 0 PrevLogIndex=10
+047013 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=10, PrevLogItem=3, entriessize=1 
+047013 LEAD S1 send to 2 PrevLogIndex=11
+047013 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=11, PrevLogItem=4, entriessize=0 
+047014 LOG2 S1 Broadcast the Heart Beat
+047015 CLNT S2 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=11,size=0,leader's commitIndex=11
+047015 CLNT S2 rf.logs length is 3
+047015 CLNT S2 rf.Entries length is 0
+047015 CLNT S2 agree the AppendLog,current log length is 11
+047016 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 2 Index= 11
+047016 LOG2 S2 receive a heartbeat from leader 1,term is 4
+047036 LOG2 S0 Broadcast the Heart Beat
+047037 LEAD S0 send to 1 PrevLogIndex=10
+047037 LOG2 s0 send equal broadcastAppendLogs to 1
+047037 LEAD S0 send to 2 PrevLogIndex=10
+047037 LOG2 s0 send equal broadcastAppendLogs to 2
+047059 CMIT S2 commit the log 1957175274542624093: Index=11
+047091 LOG1 S1 receive a command,index = 12, currentTerm = 4
+047091 LOG1 S1 receive a command,index = 13, currentTerm = 4
+047091 LOG1 S1 receive a command,index = 14, currentTerm = 4
+047092 LOG1 S1 receive a command,index = 15, currentTerm = 4
+047092 LOG1 S1 receive a command,index = 16, currentTerm = 4
+047092 LOG1 S1 receive a command,index = 17, currentTerm = 4
+047092 LOG1 S1 receive a command,index = 18, currentTerm = 4
+047092 LOG1 S1 receive a command,index = 19, currentTerm = 4
+047092 LOG1 S1 receive a command,index = 20, currentTerm = 4
+047092 LOG1 S1 receive a command,index = 21, currentTerm = 4
+047092 LOG1 S1 receive a command,index = 22, currentTerm = 4
+047715 TIMR S0 start the voteTimer
+047837 ERRO S0 Brocast Heart Beat to 2 failed
+048023 LEAD S1 send to 0 PrevLogIndex=10
+048023 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=10, PrevLogItem=3, entriessize=12 
+048023 LEAD S1 send to 2 PrevLogIndex=11
+048023 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=11, PrevLogItem=4, entriessize=11 
+048024 LOG2 S1 Broadcast the Heart Beat
+048035 LOG2 S2 receive a heartbeat from leader 1,term is 4
+048036 CLNT S2 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=11,size=11,leader's commitIndex=11
+048037 CLNT S2 rf.logs length is 3
+048037 CLNT S2 rf.Entries length is 11
+048037 LEAD S0 send to 1 PrevLogIndex=10
+048037 CLNT S2 append log 6979856963165377789 Index=3 from leader 1
+048037 LOG2 s0 send equal broadcastAppendLogs to 1
+048038 LEAD S0 send to 2 PrevLogIndex=10
+048038 LOG2 s0 send equal broadcastAppendLogs to 2
+048038 CLNT S2 append log 265450179491835647 Index=4 from leader 1
+048038 CLNT S2 append log 1089860900623810611 Index=5 from leader 1
+048038 CLNT S2 append log 9078591841846717482 Index=6 from leader 1
+048038 CLNT S2 append log 6755165073842822963 Index=7 from leader 1
+048038 CLNT S2 append log 7065005426953082855 Index=8 from leader 1
+048038 CLNT S2 append log 5074576285994095877 Index=9 from leader 1
+048038 CLNT S2 append log 8189824231558630805 Index=10 from leader 1
+048038 CLNT S2 append log 5935889376771025518 Index=11 from leader 1
+048038 CLNT S2 append log 902754078263995539 Index=12 from leader 1
+048038 CLNT S2 append log 6897780903544107652 Index=13 from leader 1
+048038 CLNT S2 agree the AppendLog,current log length is 22
+048037 LOG2 S0 Broadcast the Heart Beat
+048043 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 2 Index= 22
+048283 CMIT S1 commit the log 6979856963165377789: Index=12
+048283 CMIT S1 commit the log 265450179491835647: Index=13
+048283 CMIT S1 commit the log 1089860900623810611: Index=14
+048283 CMIT S1 commit the log 9078591841846717482: Index=15
+048283 CMIT S1 commit the log 6755165073842822963: Index=16
+048283 CMIT S1 commit the log 7065005426953082855: Index=17
+048283 CMIT S1 commit the log 5074576285994095877: Index=18
+048283 CMIT S1 commit the log 8189824231558630805: Index=19
+048283 SNAP S1 receive a SnapshotCommand index=19
+048283 SNAP S1 update lastIncludedItem=4 lastIncludedIndex=19,length is 4
+048283 CMIT S1 commit the log 5935889376771025518: Index=20
+048283 CMIT S1 commit the log 902754078263995539: Index=21
+048283 CMIT S1 commit the log 6897780903544107652: Index=22
+048316 TIMR S2 start the voteTimer
+048378 TIMR S1 start the voteTimer
+048817 ERRO S0 Brocast Heart Beat to 1 failed
+048964 ERRO S0 Brocast Heart Beat to 1 failed
+049026 LEAD S1 send to 0 PrevLogIndex=22
+049026 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=22, PrevLogItem=4, entriessize=0 
+049026 LEAD S1 send to 2 PrevLogIndex=22
+049026 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=22, PrevLogItem=4, entriessize=0 
+049026 LOG2 S1 Broadcast the Heart Beat
+049028 LOG2 S2 receive a heartbeat from leader 1,term is 4
+049028 CLNT S2 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=22,size=0,leader's commitIndex=22
+049028 CLNT S2 rf.logs length is 14
+049028 CLNT S2 rf.Entries length is 0
+049028 CLNT S2 agree the AppendLog,current log length is 22
+049029 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 2 Index= 22
+049048 LOG2 S0 Broadcast the Heart Beat
+049049 LEAD S0 send to 1 PrevLogIndex=10
+049049 LOG2 s0 send equal broadcastAppendLogs to 1
+049049 LEAD S0 send to 2 PrevLogIndex=10
+049049 LOG2 s0 send equal broadcastAppendLogs to 2
+049206 CMIT S2 commit the log 6979856963165377789: Index=12
+049206 CMIT S2 commit the log 265450179491835647: Index=13
+049206 CMIT S2 commit the log 1089860900623810611: Index=14
+049206 CMIT S2 commit the log 9078591841846717482: Index=15
+049206 CMIT S2 commit the log 6755165073842822963: Index=16
+049206 CMIT S2 commit the log 7065005426953082855: Index=17
+049206 CMIT S2 commit the log 5074576285994095877: Index=18
+049206 CMIT S2 commit the log 8189824231558630805: Index=19
+049206 SNAP S2 receive a SnapshotCommand index=19
+049206 SNAP S2 update lastIncludedItem=4 lastIncludedIndex=19,length is 4
+049207 CMIT S2 commit the log 5935889376771025518: Index=20
+049207 CMIT S2 commit the log 902754078263995539: Index=21
+049207 CMIT S2 commit the log 6897780903544107652: Index=22
+049349 LOG1 S1 receive a command,index = 23, currentTerm = 4
+050030 LEAD S1 send to 0 PrevLogIndex=22
+050030 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=22, PrevLogItem=4, entriessize=1 
+050030 LEAD S1 send to 2 PrevLogIndex=22
+050030 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=22, PrevLogItem=4, entriessize=1 
+050031 LOG2 S1 Broadcast the Heart Beat
+050032 CLNT S2 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=22,size=1,leader's commitIndex=22
+050032 CLNT S2 rf.logs length is 4
+050032 CLNT S2 rf.Entries length is 1
+050032 CLNT S2 append log 3504496844638697043 Index=4 from leader 1
+050032 CLNT S2 agree the AppendLog,current log length is 23
+050032 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 2 Index= 23
+050032 LOG2 S2 receive a heartbeat from leader 1,term is 4
+050033 LOG2 S0 receive a heartbeat from leader 1,term is 4
+050034 CLNT S0 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=22,size=1,leader's commitIndex=22
+050034 CLNT S0 reject the AppendLog command because leader PrevLogIndex 22, rf.LastlogIndex 10
+050034 CLNT 222reply.FailFirstIndex is 11
+050035 LEAD S1 term4 send snapShort to 0 
+050035 LEAD S1 leader rf.nextIndex[0]. nextIndex = 20
+050036 SNAP S0 receive a InstallSnapshot from leader1 term=4.lastIncludedIndex=19,lastIncludedItem=4
+050036 SNAP S0 commitIndex10 is out of date, update to the 19 and send ApplyMsg to applych
+050129 CMIT S1 commit the log 3504496844638697043: Index=23
+050529 TIMR S1 start the voteTimer
+050776 TIMR S0 start the voteTimer
+051033 LEAD S1 send to 0 PrevLogIndex=19
+051033 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=19, PrevLogItem=0, entriessize=4 
+051033 LEAD S1 send to 2 PrevLogIndex=23
+051033 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=23, PrevLogItem=4, entriessize=0 
+051033 LOG2 S1 Broadcast the Heart Beat
+051034 CLNT S2 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=23,size=0,leader's commitIndex=23
+051034 CLNT S2 rf.logs length is 5
+051035 CLNT S2 rf.Entries length is 0
+051035 LOG2 S0 receive a heartbeat from leader 1,term is 4
+051035 CLNT S2 agree the AppendLog,current log length is 23
+051035 LOG2 S2 receive a heartbeat from leader 1,term is 4
+051035 CLNT S0 receive a AppendLog command from leader 1,PrevLogItem=0 PrevLogIndex=19,size=4,leader's commitIndex=23
+051035 CLNT S0 rf.logs length is 1
+051035 CLNT S0 rf.Entries length is 4
+051035 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 2 Index= 23
+051035 CLNT S0 append log 5935889376771025518 Index=1 from leader 1
+051035 CLNT S0 append log 902754078263995539 Index=2 from leader 1
+051035 CLNT S0 append log 6897780903544107652 Index=3 from leader 1
+051035 CLNT S0 append log 3504496844638697043 Index=4 from leader 1
+051035 CLNT S0 agree the AppendLog,current log length is 23
+051036 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 0 Index= 23
+051047 CMIT S2 commit the log 3504496844638697043: Index=23
+051048 CMIT S0 commit the log 5935889376771025518: Index=20
+051048 CMIT S0 commit the log 902754078263995539: Index=21
+051048 CMIT S0 commit the log 6897780903544107652: Index=22
+051048 CMIT S0 commit the log 3504496844638697043: Index=23
+051271 TIMR S2 start the voteTimer
+051436 ERRO S0 send AppendEntries to 1 failed
+052043 LEAD S1 send to 0 PrevLogIndex=23
+052043 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=23, PrevLogItem=4, entriessize=0 
+052043 LEAD S1 send to 2 PrevLogIndex=23
+052043 LOG2 s1 send equal broadcastAppendLogs to 2
+052043 LOG2 S1 Broadcast the Heart Beat
+052044 CLNT S0 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=23,size=0,leader's commitIndex=23
+052044 CLNT S0 rf.logs length is 5
+052044 CLNT S0 rf.Entries length is 0
+052045 CLNT S0 agree the AppendLog,current log length is 23
+052045 LOG2 S2 receive a heartbeat from leader 1,term is 4
+052045 LOG2 S0 receive a heartbeat from leader 1,term is 4
+052045 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 0 Index= 23
+052912 TIMR S0 start the voteTimer
+053054 LEAD S1 send to 0 PrevLogIndex=23
+053054 LOG2 s1 send equal broadcastAppendLogs to 0
+053054 LEAD S1 send to 2 PrevLogIndex=23
+053054 LOG2 s1 send equal broadcastAppendLogs to 2
+053054 LOG2 S1 Broadcast the Heart Beat
+053056 LOG2 S0 receive a heartbeat from leader 1,term is 4
+053056 LOG2 S2 receive a heartbeat from leader 1,term is 4
+054062 LEAD S1 send to 0 PrevLogIndex=23
+054062 LOG2 s1 send equal broadcastAppendLogs to 0
+054062 LEAD S1 send to 2 PrevLogIndex=23
+054062 LOG2 s1 send equal broadcastAppendLogs to 2
+054063 LOG2 S1 Broadcast the Heart Beat
+054064 LOG2 S0 receive a heartbeat from leader 1,term is 4
+054064 LOG2 S2 receive a heartbeat from leader 1,term is 4
+054552 TIMR S2 start the voteTimer
+054756 ERRO S1 send AppendEntries to 0 failed
+054890 TIMR S1 start the voteTimer
+055064 LOG2 S1 Broadcast the Heart Beat
+055065 LEAD S1 send to 0 PrevLogIndex=23
+055065 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=23, PrevLogItem=4, entriessize=0 
+055065 LEAD S1 send to 2 PrevLogIndex=23
+055065 LOG2 s1 send equal broadcastAppendLogs to 2
+055066 LOG2 S2 receive a heartbeat from leader 1,term is 4
+055066 LOG2 s0 receive out of date broadcastAppendLogs,PrevLogItem:4 PrevLogIndex:23 LatestIndex:23
+055066 LOG2 S0 receive a heartbeat from leader 1,term is 4
+055066 LEAD S1 receive a out of date RPC
+055763 LOG1 S1 receive a command,index = 24, currentTerm = 4
+056068 LOG2 S1 Broadcast the Heart Beat
+056070 LEAD S1 send to 0 PrevLogIndex=23
+056070 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=23, PrevLogItem=4, entriessize=1 
+056070 LEAD S1 send to 2 PrevLogIndex=23
+056070 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=23, PrevLogItem=4, entriessize=1 
+056071 LOG2 S0 receive a heartbeat from leader 1,term is 4
+056071 CLNT S0 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=23,size=1,leader's commitIndex=23
+056071 CLNT S0 rf.logs length is 5
+056071 CLNT S0 rf.Entries length is 1
+056072 CLNT S0 append log 1584127711234299190 Index=5 from leader 1
+056072 CLNT S0 agree the AppendLog,current log length is 24
+056072 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 0 Index= 24
+056224 CMIT S1 commit the log 1584127711234299190: Index=24
+056552 TIMR S0 start the voteTimer
+057076 LEAD S1 send to 0 PrevLogIndex=24
+057077 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=24, PrevLogItem=4, entriessize=0 
+057077 LEAD S1 send to 2 PrevLogIndex=23
+057077 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=23, PrevLogItem=4, entriessize=1 
+057078 LOG2 S1 Broadcast the Heart Beat
+057079 CLNT S0 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=24,size=0,leader's commitIndex=24
+057079 CLNT S0 rf.logs length is 6
+057079 CLNT S0 rf.Entries length is 0
+057079 CLNT S0 agree the AppendLog,current log length is 24
+057079 LOG2 S0 receive a heartbeat from leader 1,term is 4
+057080 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 0 Index= 24
+057142 CMIT S0 commit the log 1584127711234299190: Index=24
+057195 LOG1 S1 receive a command,index = 25, currentTerm = 4
+057195 LOG1 S1 receive a command,index = 26, currentTerm = 4
+057195 LOG1 S1 receive a command,index = 27, currentTerm = 4
+057195 LOG1 S1 receive a command,index = 28, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 29, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 30, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 31, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 32, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 33, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 34, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 35, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 36, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 37, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 38, currentTerm = 4
+057196 LOG1 S1 receive a command,index = 39, currentTerm = 4
+057824 TIMR S1 start the voteTimer
+057847 ERRO S0 send AppendEntries to 1 failed
+058084 LOG2 S1 Broadcast the Heart Beat
+058085 LEAD S1 send to 0 PrevLogIndex=24
+058085 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=24, PrevLogItem=4, entriessize=15 
+058086 LEAD S1 send to 2 PrevLogIndex=23
+058086 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=23, PrevLogItem=4, entriessize=16 
+058086 LOG2 S0 receive a heartbeat from leader 1,term is 4
+058088 CLNT S0 receive a AppendLog command from leader 1,PrevLogItem=4 PrevLogIndex=24,size=15,leader's commitIndex=24
+058088 CLNT S0 rf.logs length is 6
+058088 CLNT S0 rf.Entries length is 15
+058088 CLNT S0 append log 2407135020473883677 Index=6 from leader 1
+058088 CLNT S0 append log 204652485388555368 Index=7 from leader 1
+058088 CLNT S0 append log 7507764001734653544 Index=8 from leader 1
+058088 CLNT S0 append log 4952557858520550787 Index=9 from leader 1
+058088 CLNT S0 append log 1660558884965644329 Index=10 from leader 1
+058088 CLNT S0 append log 7748374550887906313 Index=11 from leader 1
+058088 CLNT S0 append log 3936370187975162394 Index=12 from leader 1
+058088 CLNT S0 append log 6517718440363346087 Index=13 from leader 1
+058088 CLNT S0 append log 2289689828684974970 Index=14 from leader 1
+058088 CLNT S0 append log 7142051217896101692 Index=15 from leader 1
+058088 CLNT S0 append log 5224386627617675947 Index=16 from leader 1
+058088 CLNT S0 append log 1484824858570466340 Index=17 from leader 1
+058088 CLNT S0 append log 6630690939701271413 Index=18 from leader 1
+058088 CLNT S0 append log 5612155715414737139 Index=19 from leader 1
+058088 CLNT S0 append log 6963810584505325754 Index=20 from leader 1
+058088 CLNT S0 agree the AppendLog,current log length is 39
+058089 LEAD S1 leader term 4 receive a AppendLogReply:term4 from 0 Index= 39
+058372 CMIT S1 commit the log 2407135020473883677: Index=25
+058372 CMIT S1 commit the log 204652485388555368: Index=26
+058373 CMIT S1 commit the log 7507764001734653544: Index=27
+058373 CMIT S1 commit the log 4952557858520550787: Index=28
+058373 CMIT S1 commit the log 1660558884965644329: Index=29
+058373 CMIT S1 commit the log 7748374550887906313: Index=30
+058373 SNAP S1 receive a SnapshotCommand index=29
+058373 SNAP S1 update lastIncludedItem=4 lastIncludedIndex=29,length is 11
+058373 CMIT S1 commit the log 3936370187975162394: Index=31
+058373 CMIT S1 commit the log 6517718440363346087: Index=32
+058373 CMIT S1 commit the log 2289689828684974970: Index=33
+058373 CMIT S1 commit the log 7142051217896101692: Index=34
+058373 CMIT S1 commit the log 5224386627617675947: Index=35
+058373 CMIT S1 commit the log 1484824858570466340: Index=36
+058373 CMIT S1 commit the log 6630690939701271413: Index=37
+058373 CMIT S1 commit the log 5612155715414737139: Index=38
+058373 CMIT S1 commit the log 6963810584505325754: Index=39
+058374 SNAP S1 receive a SnapshotCommand index=39
+058374 SNAP S1 update lastIncludedItem=4 lastIncludedIndex=39,length is 1
+058791 TIMR S2 start the voteTimer
+058791 TIMR S2 voteTimer Time out
+058792 VOTE S2 broadcast the vote &{5 2 23 4}
+058792 VOTE S2 receive a voteGrant from 2,now VoteNumber is 1
+059094 LEAD S1 send to 0 PrevLogIndex=39
+059094 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=39, PrevLogItem=0, entriessize=0 
+059094 LEAD S1 send to 2 PrevLogIndex=39
+059094 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=39, PrevLogItem=0, entriessize=0 
+059094 LOG2 S1 Broadcast the Heart Beat
+059095 CLNT S0 receive a AppendLog command from leader 1,PrevLogItem=0 PrevLogIndex=39,size=0,leader's commitIndex=39
+059095 CLNT S0 reject the AppendLog command because leader prevLogIndex is 39 prevLogItem is 0,local LogIndex is 39,prevLogItem is 4
+059095 CLNT 333reply.FailFirstIndex is -1
+059096 LOG2 S0 receive a heartbeat from leader 1,term is 4
+059096 LEAD S1 term4 send snapShort to 0 
+059096 LEAD S1 leader rf.nextIndex[0]. nextIndex = 40
+059096 SNAP S0 receive a InstallSnapshot from leader1 term=4.lastIncludedIndex=39,lastIncludedItem=4
+059096 SNAP S0 commitIndex24 is out of date, update to the 39 and send ApplyMsg to applych
+059258 LOG1 S1 receive a command,index = 40, currentTerm = 4
+060103 LOG2 S1 Broadcast the Heart Beat
+060104 LEAD S1 send to 0 PrevLogIndex=39
+060104 LEAD S1 term4 send AppendEntries to 0: PrevLogIndex=39, PrevLogItem=0, entriessize=1 
+060104 LEAD S1 send to 2 PrevLogIndex=39
+060104 LEAD S1 term4 send AppendEntries to 2: PrevLogIndex=39, PrevLogItem=0, entriessize=1 
+060105 LOG2 S0 receive a heartbeat from leader 1,term is 4
+060106 CLNT S0 receive a AppendLog command from leader 1,PrevLogItem=0 PrevLogIndex=39,size=1,leader's commitIndex=39
+060106 CLNT S0 rf.logs length is 1
+060106 CLNT S0 rf.Entries length is 1
+060105 CLNT S2 receive a AppendLog command from leader 1,PrevLogItem=0 PrevLogIndex=39,size=1,leader's commitIndex=39
+060106 CLNT S0 append log 7487700601922189437 Index=1 from leader 1
+060106 CLNT S0 agree the AppendLog,current log length is 40
+060106 CLNT S2 reject the AppendLog command because leader term is 4,local term is 5
+060106 CLNT 111reply.FailFirstIndex is -1
+060106 ERRO S2 receive a invalid heartbeat from leader 1,my_term: 5,args_term: 4
+060106 LEAD S1 leader term 4 is out of date,newer term is 5
+060412 TIMR S0 start the voteTimer
+060516 TIMR S2 start the voteTimer
+061766 TIMR S1 start the voteTimer
+063364 ERRO S1 Brocast Heart Beat to 0 failed
+063806 TIMR S2 start the voteTimer
+063806 TIMR S2 voteTimer Time out
+063807 VOTE S2 broadcast the vote &{6 2 23 4}
+063807 VOTE S2 receive a voteGrant from 2,now VoteNumber is 1
+063809 INFO S1 receive a Vote Request from 2,but LogIndex leader=23 < me=40 || LeaderTerm leader=4 < me=4
+063809 INFO S0 receive a Vote Request from 2,but LogIndex leader=23 < me=40 || LeaderTerm leader=4 < me=4
+064676 TIMR S0 start the voteTimer
+064676 TIMR S0 voteTimer Time out
+064677 VOTE S0 broadcast the vote &{7 0 40 4}
+064678 INFO S2 receive a Vote Request from 0 LogIndex leader=40  me=23 LeaderTerm leader=4  me=4
+064678 INFO S2 receive a Vote Request from 0, term is out of date
+064678 VOTE S0 receive a voteGrant from 0,now VoteNumber is 1
+064678 VOTE S0 receive a voteGrant from 2,now VoteNumber is 2
+064678 INFO S0 become a leader,it has win the 2 vote
+064679 LOG2 S0 Broadcast the Heart Beat
+064679 INFO S1 receive a Vote Request from 0 LogIndex leader=40  me=40 LeaderTerm leader=4  me=4
+064679 LEAD S0 send to 1 PrevLogIndex=40
+064679 LEAD S0 term7 send AppendEntries to 1: PrevLogIndex=40, PrevLogItem=4, entriessize=0 
+064679 LEAD S0 send to 2 PrevLogIndex=40
+064679 LEAD S0 term7 send AppendEntries to 2: PrevLogIndex=40, PrevLogItem=4, entriessize=0 
+064680 LOG2 S2 receive a heartbeat from leader 0,term is 7
+064680 CLNT S1 receive a AppendLog command from leader 0,PrevLogItem=4 PrevLogIndex=40,size=0,leader's commitIndex=39
+064680 CLNT S1 rf.logs length is 2
+064680 CLNT S1 rf.Entries length is 0
+064680 CLNT S2 receive a AppendLog command from leader 0,PrevLogItem=4 PrevLogIndex=40,size=0,leader's commitIndex=39
+064680 CLNT S2 reject the AppendLog command because leader PrevLogIndex 40, rf.LastlogIndex 23
+064680 CLNT S1 agree the AppendLog,current log length is 40
+064680 CLNT 222reply.FailFirstIndex is 24
+064680 LOG2 S1 receive a heartbeat from leader 0,term is 7
+064680 LEAD S0 term7 send snapShort to 2 
+064681 LEAD S0 leader rf.nextIndex[2]. nextIndex = 40
+064681 LEAD S0 leader term 7 receive a AppendLogReply:term7 from 1 Index= 40
+064681 SNAP S2 receive a InstallSnapshot from leader0 term=7.lastIncludedIndex=39,lastIncludedItem=4
+064681 SNAP S2 commitIndex23 is out of date, update to the 39 and send ApplyMsg to applych
+apply error: server 2 snapshot doesn't match m.SnapshotIndex
+exit status 1
+FAIL	6.5840/raft	6.470s
