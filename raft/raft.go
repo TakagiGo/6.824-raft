@@ -142,14 +142,18 @@ func (rf *Raft) GetState() (int, bool) {
 func (rf *Raft) persist() {
 	// Your code here (2C).
 	// Example:
+	Debug(dLog, "s%d Persist", rf.me)
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
 	e.Encode(rf.currentTerm)
 	e.Encode(rf.votedFor)
 	e.Encode(rf.logs)
+	e.Encode(rf.lastIncludedIndex)
+	e.Encode(rf.lastIncludedItem)
+	e.Encode(rf.lastApplied)
 	raftstate := w.Bytes()
 	//Debug(dPersist, "s%d persist the log,length is %d", rf.me, len(raftstate))
-	rf.persister.Save(raftstate, nil)
+	rf.persister.Save(raftstate, rf.snapShort)
 }
 
 // restore previously persisted state.
@@ -166,13 +170,20 @@ func (rf *Raft) readPersist(data []byte) {
 	var currentTerm int
 	var votedFor int
 	var logs []*Log
+	var lastIncludedIndex int
+	var lastIncludedItem int
+	var lastApplied int
 	if d.Decode(&currentTerm) != nil ||
-		d.Decode(&votedFor) != nil || d.Decode(&logs) != nil {
+		d.Decode(&votedFor) != nil || d.Decode(&logs) != nil || d.Decode(&lastIncludedIndex) != nil ||
+		d.Decode(&lastIncludedItem) != nil {
 		Debug(dError, "S%d readPersist Failed", rf.me)
 	} else {
 		rf.currentTerm = currentTerm
 		rf.votedFor = votedFor
 		rf.logs = logs
+		rf.lastIncludedIndex = lastIncludedIndex
+		rf.lastIncludedItem = lastIncludedItem
+		rf.lastApplied = lastApplied
 		Debug(dWarn, "S%d currentTerm is %d", rf.me, currentTerm)
 	}
 }
@@ -187,13 +198,15 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 	defer rf.mu.Unlock()
 	rf.lastIncludedItem = rf.logs[index-rf.lastIncludedIndex].LeaderTerm
 	Debug(dSnap, "S%d receive a SnapshotCommand index=%d", rf.me, index)
-	rf.logs = append(rf.logs[0:1], rf.logs[index-rf.lastIncludedIndex+1:]...)
+	newLog := append(rf.logs[0:1], rf.logs[index-rf.lastIncludedIndex+1:]...)
+	rf.logs = newLog
 	rf.lastIncludedIndex = index
 	Debug(dSnap, "S%d update lastIncludedItem=%d lastIncludedIndex=%d,length is %d", rf.me, rf.lastIncludedItem, rf.lastIncludedIndex, len(rf.logs))
 	rf.snapShort = snapshot
 	for i := 0; i < rf.peersNumber; i++ {
 		rf.nextIndex[i] = rf.LastlogIndex + 1
 	}
+	rf.logs[0].LeaderTerm = rf.lastIncludedItem
 	rf.persist()
 }
 
@@ -340,6 +353,9 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				Debug(dError, "S%d receive a invalid heartbeat from leader %d,my_term: %d,args_term: %d", rf.me, args.LeaderId, rf.currentTerm, args.CurrentTerm)
 			}
 		} else {
+			for i := 0; i < len(args.Entries); i++ {
+				Debug(dClient, "S%d receive log %v Index=%d from leader %d", rf.me, args.Entries[i].Command, i+rf.lastIncludedIndex, args.LeaderId)
+			}
 			if args.CurrentTerm > rf.currentTerm {
 				rf.lastTickTime = time.Now()
 				Debug(dLog2, "S%d receive a RPC,my_term: %d,args_term: %d", rf.me, args.LeaderId, args.CurrentTerm)
@@ -394,7 +410,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				reply.LastLogItem = rf.currentTerm
 				reply.Success = true
 				reply.ApplyIndex = rf.lastIncludedIndex
-
 				return
 			} else {
 				Debug(dClient, "S%d rf.logs length is %d", rf.me, len(rf.logs))
@@ -406,7 +421,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 				rf.UpdateLogs(rf.logs)
 				for i := args.PrevLogIndex + 1 - rf.lastIncludedIndex; i < len(rf.logs); i++ {
-					Debug(dClient, "S%d append log %v Index=%d from leader %d", rf.me, rf.logs[i].Command, i, args.LeaderId)
+					Debug(dClient, "S%d append log %v Index=%d from leader %d", rf.me, rf.logs[i].Command, i+rf.lastIncludedIndex, args.LeaderId)
 				}
 				//rf.LastlogIndex = len(rf.logs) - 1
 				// 0 1 2 3 4 [5 6 7 8 9]
@@ -457,15 +472,18 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	Debug(dSnap, "S%d receive a InstallSnapshot from leader%d term=%d.lastIncludedIndex=%d,lastIncludedItem=%d", rf.me, args.LeaderId, args.Term, args.LastIncludedIndex, args.LastIncludedItem)
 	rf.sliceLogs(args.LastIncludedIndex+1, rf.LastlogIndex)
 	rf.lastIncludedIndex = args.LastIncludedIndex
+	rf.snapShort = args.SnapShot
 	rf.lastIncludedItem = args.LastIncludedItem
 	rf.LastlogIndex = rf.lastIncludedIndex + len(rf.logs) - 1
+	rf.persist()
 	if args.LastIncludedIndex > rf.commitIndex {
 		Debug(dSnap, "S%d commitIndex%d is out of date, update to the %d and send ApplyMsg to applych", rf.me, rf.commitIndex, args.LastIncludedIndex)
-		rf.applyCh <- ApplyMsg{SnapshotValid: true, Snapshot: args.SnapShot, SnapshotIndex: rf.lastIncludedIndex, SnapshotTerm: rf.lastIncludedItem}
+		go func() {
+			rf.applyCh <- ApplyMsg{SnapshotValid: true, Snapshot: args.SnapShot, SnapshotIndex: rf.lastIncludedIndex, SnapshotTerm: rf.lastIncludedItem}
+		}()
 		rf.commitIndex = args.LastIncludedIndex
 		rf.lastApplied = rf.commitIndex
 	}
-
 }
 
 // example code to send a RequestVote RPC to a server.
@@ -502,6 +520,12 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+	if ok {
+		go rf.ProcessAppendLogReply(reply)
+	} else {
+		rf.lastAppendEntriesArgs[server] = nil
+		Debug(dError, "S%d send AppendEntries to %d failed", rf.me, server)
+	}
 	return ok
 }
 
@@ -581,16 +605,11 @@ func (rf *Raft) broadcastAppendLogs() {
 			}
 			rf.lastAppendEntriesArgs[i] = args
 			Debug(dLeader, "S%d term%d send AppendEntries to %d: PrevLogIndex=%d, PrevLogItem=%d, entriessize=%d ", rf.me, rf.currentTerm, i, args.PrevLogIndex, args.PrevLogItem, len(args.Entries))
-			go func(i int, args *AppendEntriesArgs) {
-				reply := &AppendEntriesReply{}
-				ok := rf.sendAppendEntries(i, args, reply)
-				if !ok {
-					rf.lastAppendEntriesArgs[i] = nil
-					Debug(dError, "S%d send AppendEntries to %d failed", rf.me, i)
-				} else {
-					rf.ProcessAppendLogReply(reply)
-				}
-			}(i, args)
+			//go func(i int) {
+			reply := &AppendEntriesReply{}
+			go rf.sendAppendEntries(i, args, reply)
+
+			//}(i)
 		}
 		rf.mu.Unlock()
 		time.Sleep(time.Duration(rf.HeartBeatGap) * time.Millisecond)
@@ -630,6 +649,7 @@ func (rf *Raft) ProcessAppendLogReply(reply *AppendEntriesReply) {
 			Debug(dLeader, "S%d receive a out of date RPC", rf.me)
 			return
 		}
+		Debug(dLeader, "S%d receive a AppendLogReply from %d", rf.me, reply.Id)
 		if reply.Success == false {
 			if reply.CurrentTerm > rf.currentTerm {
 				Debug(dLeader, "S%d leader term %d is out of date,newer term is %d", rf.me, rf.currentTerm, reply.CurrentTerm)
@@ -847,7 +867,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.votedFor = -1
 	rf.commitIndex = 0
 	rf.lastApplied = 0
-	rf.HeartBeatGap = 100
+	rf.HeartBeatGap = 120
 	rf.applyCh = applyCh
 	Debug(dInfo, "S%d start to service", rf.me)
 	rf.logs = make([]*Log, 1)
@@ -857,9 +877,14 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.lastTickTime = time.Now()
 
 	rf.LastlogIndex = len(rf.logs) - 1 + rf.lastIncludedIndex
-	rf.commitIndex = 0
-	rf.lastApplied = 0
-
+	rf.commitIndex = rf.lastIncludedIndex
+	rf.lastApplied = rf.lastIncludedIndex
+	if rf.commitIndex > 0 {
+		go func() {
+			rf.snapShort = rf.persister.ReadSnapshot()
+			rf.applyCh <- ApplyMsg{SnapshotValid: true, Snapshot: rf.snapShort, SnapshotIndex: rf.lastIncludedIndex, SnapshotTerm: rf.lastIncludedItem}
+		}()
+	}
 	// log
 	rf.nextIndex = make([]int, rf.peersNumber)
 	rf.matchIndex = make([]int, rf.peersNumber)
