@@ -590,6 +590,7 @@ func (rf *Raft) broadcastAppendLogs() {
 			rf.mu.Unlock()
 			break
 		}
+		ms := rf.HeartBeatGap
 		for i := 0; i < len(rf.peers); i++ {
 			if i == rf.me {
 				continue
@@ -597,22 +598,22 @@ func (rf *Raft) broadcastAppendLogs() {
 			args := &AppendEntriesArgs{CurrentTerm: rf.currentTerm, LeaderId: rf.me, PrevLogIndex: rf.nextIndex[i] - 1, AppendType: AppendLog, LeaderCommit: rf.commitIndex}
 			Debug(dLeader, "S%d send to %d PrevLogIndex=%d", rf.me, i, args.PrevLogIndex)
 			args.PrevLogItem = rf.logs[args.PrevLogIndex-rf.lastIncludedIndex].LeaderTerm
-			args.Entries = rf.logs[args.PrevLogIndex+1-rf.lastIncludedIndex:]
 			args.LatestIndex = rf.LastlogIndex
-			if rf.lastAppendEntriesArgs[i] != nil && rf.lastAppendEntriesArgs[i].PrevLogIndex == args.PrevLogIndex && rf.lastAppendEntriesArgs[i].LeaderCommit == args.LeaderCommit && len(rf.lastAppendEntriesArgs[i].Entries) == len(args.Entries) && rf.lastAppendEntriesArgs[i].LatestIndex == args.LatestIndex {
+			if rf.lastAppendEntriesArgs[i] != nil && rf.lastAppendEntriesArgs[i].PrevLogIndex == args.PrevLogIndex && rf.lastAppendEntriesArgs[i].LeaderCommit == args.LeaderCommit && rf.lastAppendEntriesArgs[i].LatestIndex == args.LatestIndex {
 				Debug(dLog2, "s%d send equal broadcastAppendLogs to %d", rf.me, i)
 				continue
 			}
+			args.Entries = rf.logs[args.PrevLogIndex+1-rf.lastIncludedIndex:]
 			rf.lastAppendEntriesArgs[i] = args
 			Debug(dLeader, "S%d term%d send AppendEntries to %d: PrevLogIndex=%d, PrevLogItem=%d, entriessize=%d ", rf.me, rf.currentTerm, i, args.PrevLogIndex, args.PrevLogItem, len(args.Entries))
 			//go func(i int) {
 			reply := &AppendEntriesReply{}
 			go rf.sendAppendEntries(i, args, reply)
-
+			ms -= 5
 			//}(i)
 		}
 		rf.mu.Unlock()
-		time.Sleep(time.Duration(rf.HeartBeatGap) * time.Millisecond)
+		time.Sleep(time.Duration(ms) * time.Millisecond)
 	}
 }
 
@@ -867,7 +868,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.votedFor = -1
 	rf.commitIndex = 0
 	rf.lastApplied = 0
-	rf.HeartBeatGap = 120
+	rf.HeartBeatGap = 80
 	rf.applyCh = applyCh
 	Debug(dInfo, "S%d start to service", rf.me)
 	rf.logs = make([]*Log, 1)
